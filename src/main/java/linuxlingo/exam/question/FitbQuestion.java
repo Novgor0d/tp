@@ -29,17 +29,15 @@ public class FitbQuestion extends Question {
 
     @Override
     public String present() {
-        // TODO: Implement present
-        //  Return formatHeader() + " " + questionText + "\n"
-        throw new UnsupportedOperationException("TODO: implement FitbQuestion.present()");
+        return formatHeader() + " " + questionText + "\n";
     }
 
     @Override
     public boolean checkAnswer(String answer) {
-        // TODO: Implement checkAnswer
-        //  1. If answer is null → return false
-        //  2. Return acceptedAnswers.contains(answer.trim())
-        throw new UnsupportedOperationException("TODO: implement FitbQuestion.checkAnswer()");
+        if (answer == null) {
+            return false;
+        }
+        return acceptedAnswers.contains(answer.trim());
     }
 
     public List<String> getAcceptedAnswers() {
