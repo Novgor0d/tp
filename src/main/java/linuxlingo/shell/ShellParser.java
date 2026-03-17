@@ -168,6 +168,7 @@ public class ShellParser {
                 default:
                     current.append(c);
                 }
+                break;
             case IN_SINGLE_QUOTE:
                 if (c == '\'') {
                     state = State.NORMAL; // closing quote, not to be added to current
@@ -225,6 +226,7 @@ public class ShellParser {
             case APPEND:
                 expectRedirectTarget = true;
                 pendingRedirectOp = ">>";
+                break;
             case PIPE, AND, SEMICOLON:
                 // Finalizing the current segment before recording the operator
                 if (!currentWords.isEmpty()) {
