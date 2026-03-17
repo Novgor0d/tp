@@ -1,8 +1,12 @@
 package linuxlingo.storage;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
+import linuxlingo.exam.Checkpoint;
+import linuxlingo.exam.QuestionBank;
 import linuxlingo.exam.question.FitbQuestion;
 import linuxlingo.exam.question.McqQuestion;
 import linuxlingo.exam.question.PracQuestion;
@@ -46,21 +50,47 @@ public class QuestionParser {
      * @throws StorageException if the file cannot be read
      */
     public static List<Question> parseFile(Path path) throws StorageException {
-        // TODO: Implement parseFile
-        //  1. List<String> lines = Storage.readLines(path)
-        //  2. For each line:
-        //     a. Trim; skip blank lines and lines starting with '#'
-        //     b. Split by " | " (limit 6) → fields[]
-        //        fields[0]=type, [1]=difficulty, [2]=questionText,
-        //        [3]=answer, [4]=options (may be empty), [5]=explanation (may be absent)
-        //     c. If fields.length < 4 → skip (malformed)
-        //     d. Parse difficulty via parseDifficulty(fields[1].trim())
-        //     e. Switch on type:
-        //        "MCQ"  → parseMcq(questionText, answer, options, explanation, difficulty)
-        //        "FITB" → parseFitb(questionText, answer, explanation, difficulty)
-        //        "PRAC" → parsePrac(questionText, answer, explanation, difficulty)
-        //  3. Return the list
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.parseFile()");
+        List<String> lines = Storage.readLines(path);
+        List<Question> questions = new ArrayList<>();
+
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+                continue;
+            }
+
+            String[] fields = trimmedLine.split("\\s+\\|\\s+", 6);
+            if (fields.length < 4) {
+                continue;
+            }
+
+            String type = fields[0].trim().toUpperCase();
+            Question.Difficulty difficulty = parseDifficulty(fields[1].trim());
+            String questionText = fields[2].trim();
+            String answer = fields[3].trim();
+            String options = fields.length >= 5 ? fields[4].trim() : "";
+            String explanation = fields.length >= 6 ? fields[5].trim() : "";
+
+            try {
+                switch (type) {
+                case "MCQ":
+                    questions.add(parseMcq(questionText, answer, options, explanation, difficulty));
+                    break;
+                case "FITB":
+                    questions.add(parseFitb(questionText, answer, explanation, difficulty));
+                    break;
+                case "PRAC":
+                    questions.add(parsePrac(questionText, answer, explanation, difficulty));
+                    break;
+                default:
+                    break;
+                }
+            } catch (RuntimeException e) {
+                // Skip malformed question lines and continue loading the rest of the file.
+            }
+        }
+
+        return questions;
     }
 
     /**
@@ -72,14 +102,16 @@ public class QuestionParser {
     private static McqQuestion parseMcq(String questionText, String answer,
                                         String options, String explanation,
                                         Question.Difficulty difficulty) {
-        // TODO: Implement parseMcq
-        //  1. LinkedHashMap<Character, String> optionMap = new LinkedHashMap<>()
-        //  2. String[] optParts = options.split("(?=[A-D]:)")
-        //  3. For each part: if length >= 2 and charAt(1) == ':',
-        //     put(charAt(0), substring(2).trim())
-        //  4. char correctAnswer = answer.charAt(0)
-        //  5. Return new McqQuestion(questionText, explanation, difficulty, optionMap, correctAnswer)
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.parseMcq()");
+        LinkedHashMap<Character, String> optionMap = new LinkedHashMap<>();
+        String[] optParts = options.split("(?=[A-D]:)");
+        for (String part : optParts) {
+            String trimmedPart = part.trim();
+            if (trimmedPart.length() >= 2 && trimmedPart.charAt(1) == ':') {
+                optionMap.put(trimmedPart.charAt(0), trimmedPart.substring(2).trim());
+            }
+        }
+        char correctAnswer = answer.charAt(0);
+        return new McqQuestion(questionText, explanation, difficulty, optionMap, correctAnswer);
     }
 
     /**
@@ -90,12 +122,15 @@ public class QuestionParser {
      */
     private static FitbQuestion parseFitb(String questionText, String answer,
                                           String explanation, Question.Difficulty difficulty) {
-        // TODO: Implement parseFitb
-        //  1. String[] answers = answer.split("\\|")
-        //  2. List<String> accepted = new ArrayList<>()
-        //  3. For each a in answers → accepted.add(a.trim())
-        //  4. Return new FitbQuestion(questionText, explanation, difficulty, accepted)
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.parseFitb()");
+        String[] answers = answer.split("\\|");
+        List<String> accepted = new ArrayList<>();
+        for (String acceptedAnswer : answers) {
+            String trimmedAnswer = acceptedAnswer.trim();
+            if (!trimmedAnswer.isEmpty()) {
+                accepted.add(trimmedAnswer);
+            }
+        }
+        return new FitbQuestion(questionText, explanation, difficulty, accepted);
     }
 
     /**
@@ -106,17 +141,17 @@ public class QuestionParser {
      */
     private static PracQuestion parsePrac(String questionText, String answer,
                                           String explanation, Question.Difficulty difficulty) {
-        // TODO: Implement parsePrac
-        //  1. String[] parts = answer.split(",")
-        //  2. List<Checkpoint> checkpoints = new ArrayList<>()
-        //  3. For each part:
-        //     String[] cp = part.trim().split(":")
-        //     if cp.length == 2:
-        //       Checkpoint.NodeType nodeType = cp[1].trim().equals("DIR")
-        //           ? Checkpoint.NodeType.DIR : Checkpoint.NodeType.FILE
-        //       checkpoints.add(new Checkpoint(cp[0].trim(), nodeType))
-        //  4. Return new PracQuestion(questionText, explanation, difficulty, checkpoints)
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.parsePrac()");
+        String[] parts = answer.split(",");
+        List<Checkpoint> checkpoints = new ArrayList<>();
+        for (String part : parts) {
+            String[] checkpointParts = part.trim().split(":", 2);
+            if (checkpointParts.length == 2) {
+                Checkpoint.NodeType nodeType = checkpointParts[1].trim().equalsIgnoreCase("DIR")
+                        ? Checkpoint.NodeType.DIR : Checkpoint.NodeType.FILE;
+                checkpoints.add(new Checkpoint(checkpointParts[0].trim(), nodeType));
+            }
+        }
+        return new PracQuestion(questionText, explanation, difficulty, checkpoints);
     }
 
     /**
@@ -124,13 +159,12 @@ public class QuestionParser {
      * Defaults to {@code MEDIUM} for unknown values.
      */
     private static Question.Difficulty parseDifficulty(String diff) {
-        // TODO: Implement parseDifficulty
-        //  Switch on diff.toUpperCase():
-        //    "EASY"   → Question.Difficulty.EASY
-        //    "MEDIUM" → Question.Difficulty.MEDIUM
-        //    "HARD"   → Question.Difficulty.HARD
-        //    default  → Question.Difficulty.MEDIUM
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.parseDifficulty()");
+        return switch (diff.toUpperCase()) {
+        case "EASY" -> Question.Difficulty.EASY;
+        case "MEDIUM" -> Question.Difficulty.MEDIUM;
+        case "HARD" -> Question.Difficulty.HARD;
+        default -> Question.Difficulty.MEDIUM;
+        };
     }
 
     /**
@@ -141,10 +175,10 @@ public class QuestionParser {
      * @return topic name (e.g. "navigation", "permissions")
      */
     public static String getTopicName(Path path) {
-        // TODO: Implement getTopicName
-        //  1. String fileName = path.getFileName().toString()
-        //  2. If fileName.endsWith(".txt") → return fileName.substring(0, fileName.length() - 4)
-        //  3. Else return fileName
-        throw new UnsupportedOperationException("TODO: implement QuestionParser.getTopicName()");
+        String fileName = path.getFileName().toString();
+        if (fileName.endsWith(".txt")) {
+            return fileName.substring(0, fileName.length() - 4);
+        }
+        return fileName;
     }
 }
