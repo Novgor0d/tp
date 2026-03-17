@@ -81,7 +81,6 @@ public class ShellSession {
      * @return the result of the last segment
      */
     public CommandResult executeOnce(String input) {
-        // Trivial delegation — all real work is in executePlanSilent
         return executePlanSilent(input);
     }
 

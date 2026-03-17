@@ -168,6 +168,8 @@ public class ShellParser {
                     current.append(c); // everything inside double quotes is literal
                 }
                 break;
+            default:
+                break;
             }
         }
 
@@ -220,6 +222,9 @@ public class ShellParser {
                     currentRedirect = null;
                 }
                 operators.add(tok.type);
+                break;
+            default: // unreachable
+                break;
             }
         }
 
