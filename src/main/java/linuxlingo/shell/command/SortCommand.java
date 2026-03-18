@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import javax.swing.*;
-
 import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
 import linuxlingo.shell.vfs.VfsException;

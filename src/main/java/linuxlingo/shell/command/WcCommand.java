@@ -60,10 +60,18 @@ public class WcCommand implements Command {
         int chars = content.length();
 
         List<String> results = new ArrayList<>();
-        if (countLines) results.add(String.valueOf(lines));
-        if (countWords) results.add(String.valueOf(words));
-        if (countChars) results.add(String.valueOf(chars));
-        if (file != null) results.add(file);
+        if (countLines) {
+            results.add(String.valueOf(lines));
+        }
+        if (countWords) {
+            results.add(String.valueOf(words));
+        }
+        if (countChars) {
+            results.add(String.valueOf(chars));
+        }
+        if (file != null) {
+            results.add(file);
+        }
 
         return CommandResult.success(String.join(" ", results));
     }
