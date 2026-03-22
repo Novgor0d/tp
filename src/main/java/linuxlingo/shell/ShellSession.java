@@ -1,13 +1,20 @@
 package linuxlingo.shell;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import linuxlingo.cli.Ui;
 import linuxlingo.shell.command.Command;
 import linuxlingo.shell.vfs.VirtualFileSystem;
-import java.util.logging.Logger;
 
 /**
  * Manages the lifecycle of a shell session (interactive REPL + one-shot execution).
  *
+ * <h3>v1.0 (implemented)</h3>
  * <p><b>Owner: A — implement start(), executePlan(), and executePlanSilent().</b></p>
  *
  * <p>The getters / setters and the constructor are provided. You need to implement
@@ -16,6 +23,41 @@ import java.util.logging.Logger;
  *
  * <p><b>Dependency:</b> Falls back to {@link Ui#readLine(String)} for reading input.
  * (Tab-completion via ShellCompleter is deferred beyond v1.0.)</p>
+ *
+ * <h3>v2.0 Enhancements</h3>
+ *
+ * <h4>Owner: A — ShellSession core + alias/history commands</h4>
+ * <ul>
+ *   <li>Alias resolution in runPlan()</li>
+ *   <li>{@code ||} (OR) operator support in runPlan()</li>
+ *   <li>{@code <} input redirect support in runPlan()</li>
+ *   <li>In-memory command history tracking in start()</li>
+ *   <li>AliasCommand, UnaliasCommand, HistoryCommand</li>
+ * </ul>
+ *
+ * <h4>Owner: B — independent algorithm modules</h4>
+ * <ul>
+ *   <li>{@link #suggestCommand(String)} — "Did you mean?" suggestion</li>
+ *   <li>{@link #editDistance(String, String)} — Levenshtein algorithm</li>
+ *   <li>{@link #expandGlobs(String[])} / expandSingleGlob() — glob expansion</li>
+ *   <li>{@link ShellCompleter} — JLine tab-completion</li>
+ *   <li>{@link ShellLineReader} — JLine terminal wrapper</li>
+ *   <li>startInteractive() — JLine integration</li>
+ * </ul>
+ *
+ * TODO: Member A should implement:
+ * - Alias resolution in runPlan()
+ * - || (OR) operator handling in runPlan()
+ * - < input redirect handling in runPlan()
+ * - Command history tracking in start()
+ * - AliasCommand, UnaliasCommand, HistoryCommand
+ *
+ * TODO: Member B should implement:
+ * - suggestCommand() / editDistance() — "Did you mean?" algorithm
+ * - expandGlobs() / expandSingleGlob() — glob expansion
+ * - startInteractive() — JLine integration
+ * - ShellCompleter — tab-completion
+ * - ShellLineReader — terminal wrapper & history
  */
 public class ShellSession {
 
@@ -28,6 +70,10 @@ public class ShellSession {
     private final CommandRegistry registry;
     private final Ui ui;
     private boolean running;
+    private final Map<String, String> aliases;
+    // v2.0: will be ShellLineReader once Owner B implements it
+    private Object lineReader;
+    private final List<String> commandHistory;
 
     public ShellSession(VirtualFileSystem vfs, Ui ui) {
         if (vfs == null) {
@@ -41,18 +87,29 @@ public class ShellSession {
         this.lastExitCode = 0;
         this.registry = new CommandRegistry();
         this.running = false;
+        this.aliases = new LinkedHashMap<>();
+        this.lineReader = null;
+        this.commandHistory = new ArrayList<>();
 
         LOGGER.fine("ShellSession initialised with workingDir='/'");
     }
 
     /**
-     * Enter interactive shell REPL. Steps:
+     * Enter interactive shell REPL.
+     *
+     * <h4>v1.0 (implemented)</h4>
      * <ol>
      *   <li>Set {@code running = true}; print welcome message.</li>
      *   <li>Read input using {@link Ui#readLine(String)} with the shell prompt.</li>
      *   <li>Loop: read line → handle special words ("back", "exit", "done") → call
      *       {@link #executePlan(String)}.</li>
      * </ol>
+     *
+     * <h4>v2.0 TODO</h4>
+     * <p>If a {@link ShellLineReader} has been set via {@link #setLineReader},
+     * input should be read from JLine (with tab-completion and history).
+     * Otherwise, falls back to {@link Ui#readLine(String)}.
+     * Also track each command in {@code commandHistory}.</p>
      */
     public void start() {
         assert !running : "start() called while session is already running";
@@ -62,6 +119,8 @@ public class ShellSession {
         ui.println("Welcome to LinuxLingo Shell! Type 'exit' to quit.");
 
         while (running) {
+            // v1.0: read from Ui
+            // TODO v2.0 (Owner B): if lineReader != null, use lineReader.readLine(getPrompt()) instead
             String input = ui.readLine(getPrompt());
 
             // null signals end of piped test input
@@ -83,9 +142,31 @@ public class ShellSession {
                 break;
             }
 
+            // TODO v2.0 (Owner A): track command in commandHistory
+            // commandHistory.add(trimmed);
+
             executePlan(input);
         }
-        LOGGER.info("Shell session ended with lastExitCode=" + lastExitCode);
+        LOGGER.log(Level.INFO, "Shell session ended with lastExitCode={0}", lastExitCode);
+    }
+
+    /**
+     * Start an interactive shell with JLine tab-completion and command history.
+     * Creates a {@link ShellLineReader} with a system terminal, then delegates
+     * to {@link #start()}.
+     *
+     * <p>v2.0 stub — to be implemented by Member B.</p>
+     * <p>If JLine cannot initialise (e.g. no TTY), falls back to plain Ui input.</p>
+     *
+     * TODO: Member B — implement JLine integration:
+     * - Create ShellLineReader.create(this) 
+     * - Call start()
+     * - Close lineReader in finally block
+     */
+    public void startInteractive() {
+        // TODO v2.0: implement JLine integration
+        // Placeholder: just start with plain Ui for now
+        start();
     }
 
     /**
@@ -103,7 +184,7 @@ public class ShellSession {
     /**
      * Execute a parsed plan and print output to the UI.
      *
-     * <p>Algorithm outline:</p>
+     * <h4>v1.0 Algorithm outline:</h4>
      * <ol>
      *   <li>Parse input with {@link ShellParser#parse(String)}.</li>
      *   <li>Iterate segments. For each:
@@ -139,11 +220,20 @@ public class ShellSession {
      * Core plan execution engine shared by both {@link #executePlan} and
      * {@link #executePlanSilent}.
      *
-     * <p>Operator semantics:</p>
+     * <h4>v1.0 Operator semantics (implemented):</h4>
      * <ul>
      *   <li>{@code PIPE}      — stdout of segment N becomes stdin of segment N+1</li>
      *   <li>{@code AND}       — segment N+1 is skipped if lastExitCode != 0</li>
      *   <li>{@code SEMICOLON} — segment N+1 always runs regardless of exit code</li>
+     * </ul>
+     *
+     * <h4>v2.0 TODO — additional semantics to implement:</h4>
+     * <ul>
+     *   <li>{@code OR}        — segment N+1 is skipped if lastExitCode == 0</li>
+     *   <li>Alias resolution: check aliases map before registry lookup</li>
+     *   <li>Input redirect: read file content as stdin when segment.inputRedirect is set</li>
+     *   <li>Glob expansion: expand wildcards in args before command execution</li>
+     *   <li>"Did you mean?": suggest similar command on command-not-found</li>
      * </ul>
      *
      * @param input raw command string
@@ -153,7 +243,7 @@ public class ShellSession {
     private CommandResult runPlan(String input) {
         ShellParser.ParsedPlan plan = new ShellParser().parse(input);
 
-        // Checking whether structure is invariant form the parser
+        // Checking whether structure is invariant from the parser
         assert plan.operators.size() == Math.max(0, plan.segments.size() - 1)
                 : "ParsedPlan invariant violated: operators=" + plan.operators.size()
                 + " segments=" + plan.segments.size();
@@ -174,16 +264,21 @@ public class ShellSession {
             assert segment.commandName != null && !segment.commandName.isBlank()
                     : "Segment at index " + i + " has blank commandName";
 
-            // Check the operator that precedes this segment
+            // ── v1.0: Check the operator that precedes this segment ──
             // operators.get(i-1) sits between segment[i-1] and segment[i]
             if (i > 0) {
-                ShellParser.TokenType precedingOp = plan.operators.get(i-1);
+                ShellParser.TokenType precedingOp = plan.operators.get(i - 1);
 
                 if (precedingOp == ShellParser.TokenType.AND && lastExitCode != 0) {
                     // the last command failed so skipping the next command
                     // && requires the previous command to have succeeded
                     break;
                 }
+
+                // TODO v2.0 (Owner A): handle OR operator
+                // if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
+                //     break;
+                // }
 
                 if (precedingOp != ShellParser.TokenType.PIPE) {
                     // SEMICOLON or AND (that passed): clear any leftover piped stdin
@@ -196,21 +291,38 @@ public class ShellSession {
             String stdin = pipedStdin;
             pipedStdin = null;
 
-            //  Look up command in registry
+            // TODO v2.0 (Owner A): handle input redirect (< operator)
+            // if (segment.inputRedirect != null && !segment.inputRedirect.isEmpty()) {
+            //     stdin = vfs.readFile(segment.inputRedirect, workingDir);
+            // }
+
+            // TODO v2.0 (Owner A): resolve alias before registry lookup
+            // String resolvedName = segment.commandName;
+            // if (aliases.containsKey(resolvedName)) {
+            //     resolvedName = aliases.get(resolvedName);
+            // }
+
+            // TODO v2.0 (Owner B): expand glob patterns in arguments
+            // String[] expandedArgs = expandGlobs(segment.args);
+
+            // ── v1.0: Look up command in registry ──
             Command command = registry.get(segment.commandName);
             if (command == null) {
                 String errorMsg = segment.commandName + ": command not found";
-                LOGGER.warning("Command not found: '" + segment.commandName + "'");
+                LOGGER.log(Level.WARNING, "Command not found: ''{0}''", segment.commandName);
+                // TODO v2.0 (Owner B): add "Did you mean?" suggestion
+                // String suggestion = suggestCommand(segment.commandName);
+                // if (suggestion != null) { errorMsg += "\n" + suggestion; }
                 ui.println(errorMsg);
                 setLastExitCode(127);
                 lastResult = CommandResult.error(errorMsg);
                 continue; // no piped output from a missing command
             }
 
-            // Execute the command
+            // ── v1.0: Execute the command ──
             CommandResult result = command.execute(this, segment.args, stdin);
 
-            //  Print stderr immediately (user is not redirected)
+            // Print stderr immediately (user is not redirected)
             if (!result.getStderr().isEmpty()) {
                 ui.println(result.getStderr());
             }
@@ -297,5 +409,92 @@ public class ShellSession {
 
     public boolean isRunning() {
         return running;
+    }
+
+    public Map<String, String> getAliases() {
+        return aliases;
+    }
+
+    public Object getLineReader() {
+        return lineReader;
+    }
+
+    public void setLineReader(Object reader) {
+        this.lineReader = reader;
+    }
+
+    /**
+     * Get the in-memory command history list.
+     *
+     * @return mutable list of command history entries
+     */
+    public List<String> getCommandHistory() {
+        return commandHistory;
+    }
+
+    // ─── "Did you mean?" suggestion ─────────────────────────────
+
+    /**
+     * Suggest a similar command name using edit distance.
+     *
+     * <p>v2.0 stub — to be implemented by Member B.</p>
+     * <p>Should iterate all registered command names, compute edit distance,
+     * and return "Did you mean 'X'?" if the best match has distance ≤ 2.</p>
+     *
+     * @param input the unrecognized command name
+     * @return a suggestion string like "Did you mean 'ls'?" or null
+     */
+    public String suggestCommand(String input) {
+        // TODO v2.0 (Owner B): implement using editDistance() and registry.getAllNames()
+        return null;
+    }
+
+    /**
+     * Compute Levenshtein edit distance between two strings.
+     *
+     * <p>v2.0 stub — to be implemented by Member B.</p>
+     * <p>Use dynamic programming: dp[i][j] = min edits to transform a[0..i-1] to b[0..j-1].</p>
+     *
+     * @param a first string
+     * @param b second string
+     * @return the edit distance
+     */
+    static int editDistance(String a, String b) {
+        // TODO v2.0 (Owner B): implement Levenshtein DP algorithm
+        return Math.abs(a.length() - b.length()); // placeholder
+    }
+
+    // ─── Glob expansion ─────────────────────────────────────────
+
+    /**
+     * Expand glob patterns (*, ?) in arguments against the VFS.
+     *
+     * <p>v2.0 stub — to be implemented by Member B.</p>
+     * <p>For each arg containing wildcards and a path separator,
+     * expand against VFS using {@link #expandSingleGlob(String)}.
+     * If no matches, keep the literal arg.</p>
+     *
+     * @param args the original arguments
+     * @return expanded arguments (or originals if no globs matched)
+     */
+    public String[] expandGlobs(String[] args) {
+        // TODO v2.0 (Owner B): implement glob expansion
+        return args; // placeholder: return args unchanged
+    }
+
+    /**
+     * Expand a single glob pattern against the VFS.
+     *
+     * <p>v2.0 stub — to be implemented by Member B.</p>
+     * <p>Split the pattern at the last '/', use the prefix as the directory
+     * and the suffix as the file pattern. Use
+     * {@link VirtualFileSystem#findByName(String, String, String)} for matching.</p>
+     *
+     * @param pattern a glob pattern like "/home/user/*.txt"
+     * @return list of matched absolute paths, or empty if no matches
+     */
+    private List<String> expandSingleGlob(String pattern) {
+        // TODO v2.0 (Owner B): implement VFS glob matching
+        return new ArrayList<>(); // placeholder
     }
 }

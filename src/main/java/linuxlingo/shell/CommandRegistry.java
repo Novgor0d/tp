@@ -81,6 +81,20 @@ public final class CommandRegistry {
         register("reset", new ResetCommand());
         register("envlist", new EnvListCommand());
         register("envdelete", new EnvDeleteCommand());
+
+        // ── v2.0 — New Commands (Owner: A) ─────────────────────
+        // TODO v2.0 (Owner A): register("alias", new AliasCommand());
+        // TODO v2.0 (Owner A): register("unalias", new UnaliasCommand());
+        // TODO v2.0 (Owner A): register("history", new HistoryCommand());
+
+        // ── v2.0 — New Commands (Owner: C) ─────────────────────
+        // TODO v2.0 (Owner C): register("man", new ManCommand());
+        // TODO v2.0 (Owner C): register("tree", new TreeCommand());
+        // TODO v2.0 (Owner C): register("which", new WhichCommand());
+        // TODO v2.0 (Owner C): register("whoami", new WhoamiCommand());
+        // TODO v2.0 (Owner C): register("date", new DateCommand());
+        // TODO v2.0 (Owner C): register("tee", new TeeCommand());
+        // TODO v2.0 (Owner C): register("diff", new DiffCommand());
     }
 
     public void register(String name, Command cmd) {
