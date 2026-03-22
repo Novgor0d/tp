@@ -8,6 +8,7 @@ import java.util.logging.Logger;
  *
  * <p><b>Owner: A</b></p>
  *
+ * <h3>v1.0 (implemented)</h3>
  * <p>Parsing pipeline:</p>
  * <pre>
  *   Raw Input String
@@ -24,13 +25,20 @@ import java.util.logging.Logger;
  *       ▼
  *   Execution Engine  — execute segments, connecting via pipes/redirects
  * </pre>
+ *
+ * <h3>v2.0 Enhancements (infrastructure — fully implemented)</h3>
+ * <ul>
+ *   <li>{@code ||} (OR) operator token and parsing</li>
+ *   <li>{@code <} (INPUT_REDIRECT) operator token and parsing</li>
+ *   <li>{@code inputRedirect} field on Segment for redirect source file</li>
+ * </ul>
  */
 public class ShellParser {
 
     private static final Logger LOGGER =  Logger.getLogger(ShellParser.class.getName());
 
     public enum TokenType {
-        WORD, PIPE, REDIRECT, APPEND, AND, SEMICOLON
+        WORD, PIPE, REDIRECT, APPEND, AND, SEMICOLON, OR, INPUT_REDIRECT
     }
 
     public static class Token {
@@ -80,8 +88,13 @@ public class ShellParser {
         public final String commandName;
         public final String[] args;
         public final RedirectInfo redirect;
+        public final String inputRedirect; // file for < input redirect
 
         public Segment(String commandName, String[] args, RedirectInfo redirect) {
+            this(commandName, args, redirect, null);
+        }
+
+        public Segment(String commandName, String[] args, RedirectInfo redirect, String inputRedirect) {
             if (commandName == null || commandName.isBlank()) {
                 throw new IllegalArgumentException("Segment commandName must not be null or blank");
             }
@@ -92,6 +105,7 @@ public class ShellParser {
             this.commandName = commandName;
             this.args = args;
             this.redirect = redirect;
+            this.inputRedirect = inputRedirect;
         }
     }
 
@@ -137,7 +151,7 @@ public class ShellParser {
             return new ParsedPlan(segments, operators);
         }
 
-        LOGGER.fine("Parsing input: " + input);
+        LOGGER.fine(() -> "Parsing input: " + input);
 
         // Tokenizer (char-by-char state machine)
         List<Token> tokens = new java.util.ArrayList<>();
@@ -157,7 +171,16 @@ public class ShellParser {
                     break;
                 case '|':
                     flushCurrentToken(current, tokens);
-                    tokens.add(new Token("|", TokenType.PIPE));
+                    if (i + 1 < input.length() && input.charAt(i + 1) == '|') {
+                        tokens.add(new Token("||", TokenType.OR));
+                        i++; // skip second '|'
+                    } else {
+                        tokens.add(new Token("|", TokenType.PIPE));
+                    }
+                    break;
+                case '<':
+                    flushCurrentToken(current, tokens);
+                    tokens.add(new Token("<", TokenType.INPUT_REDIRECT));
                     break;
                 case ';':
                     flushCurrentToken(current, tokens);
@@ -220,7 +243,9 @@ public class ShellParser {
         // ON PIPE/AND/SEMICOLON: finalize the current segment, record operator
         List<String> currentWords = new java.util.ArrayList<>();
         RedirectInfo currentRedirect = null;
+        String currentInputRedirect = null;
         boolean expectRedirectTarget = false;
+        boolean expectInputRedirectTarget = false;
         String pendingRedirectOp = null;
 
         for (Token tok : tokens) {
@@ -238,6 +263,15 @@ public class ShellParser {
                 pendingRedirectOp = null;
             }
 
+            if (expectInputRedirectTarget) {
+                if (tok.type == TokenType.WORD) {
+                    currentInputRedirect = tok.value;
+                    expectInputRedirectTarget = false;
+                    continue;
+                }
+                expectInputRedirectTarget = false;
+            }
+
             switch (tok.type) {
             case WORD:
                 currentWords.add(tok.value);
@@ -250,12 +284,16 @@ public class ShellParser {
                 expectRedirectTarget = true;
                 pendingRedirectOp = ">>";
                 break;
-            case PIPE, AND, SEMICOLON:
+            case INPUT_REDIRECT:
+                expectInputRedirectTarget = true;
+                break;
+            case PIPE, AND, SEMICOLON, OR:
                 // Finalizing the current segment before recording the operator
                 if (!currentWords.isEmpty()) {
-                    segments.add(buildSegment(currentWords, currentRedirect));
+                    segments.add(buildSegment(currentWords, currentRedirect, currentInputRedirect));
                     currentWords = new java.util.ArrayList<>();
                     currentRedirect = null;
+                    currentInputRedirect = null;
                 }
                 operators.add(tok.type);
                 break;
@@ -266,7 +304,7 @@ public class ShellParser {
 
         // Finalizing the last segment (no trailing operator)
         if (!currentWords.isEmpty()) {
-            segments.add(buildSegment(currentWords, currentRedirect));
+            segments.add(buildSegment(currentWords, currentRedirect, currentInputRedirect));
         }
 
         assert operators.size() == Math.max(0, segments.size() - 1)
@@ -279,13 +317,18 @@ public class ShellParser {
         return new ParsedPlan(segments, operators);
     }
 
+    private Segment buildSegment(List<String> words, RedirectInfo redirect) {
+        return buildSegment(words, redirect, null);
+    }
+
     /**
      * build a segment from an accumulated word list.
      * @param words the accumulated word list
-     * @param redirect optional redirect
+     * @param redirect optional output redirect
+     * @param inputRedirect optional input redirect file
      * @return the segment
      */
-    private Segment buildSegment(List<String> words, RedirectInfo redirect) {
+    private Segment buildSegment(List<String> words, RedirectInfo redirect, String inputRedirect) {
         assert words != null && !words.isEmpty()
             : "buildSegmend() requires a non-empty word list";
 
@@ -295,7 +338,7 @@ public class ShellParser {
             args[i-1] = words.get(i);
         }
 
-        return new Segment(commandName, args, redirect);
+        return new Segment(commandName, args, redirect, inputRedirect);
     }
 
     private void flushCurrentToken(StringBuilder current, List<Token> tokens) throws IllegalArgumentException {
