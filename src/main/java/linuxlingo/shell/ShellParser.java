@@ -2,6 +2,7 @@ package linuxlingo.shell;
 
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.ArrayList;
 
 /**
  * Transforms a raw input string into a structured execution plan.
@@ -102,6 +103,13 @@ public class ShellParser {
             this.redirect = redirect;
             this.inputRedirect = inputRedirect;
         }
+
+        @Override
+        public String toString() {
+            return commandName + " " + String.join(" ", args)
+                    + (redirect != null ? " " + (redirect.isAppend() ? ">>" : ">") + " " + redirect.target : "")
+                    + (inputRedirect != null ? " < " + inputRedirect : "");
+        }
     }
 
     public static class ParsedPlan {
@@ -123,6 +131,16 @@ public class ShellParser {
             this.segments = segments;
             this.operators = operators;
         }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < segments.size(); i++) {
+                sb.append(segments.get(i));
+                if (i < operators.size()) sb.append(" [").append(operators.get(i)).append("]");
+            }
+            return sb.toString();
+        }
     }
 
     /**
@@ -137,8 +155,8 @@ public class ShellParser {
      * </ol>
      */
     public ParsedPlan parse(String input) throws IllegalArgumentException {
-        List<Segment> segments = new java.util.ArrayList<>();
-        List<TokenType> operators = new java.util.ArrayList<>();
+        List<Segment> segments = new ArrayList<>();
+        List<TokenType> operators = new ArrayList<>();
 
         // Edge case
         if (input == null || input.trim().isEmpty()) {
@@ -149,7 +167,7 @@ public class ShellParser {
         LOGGER.fine(() -> "Parsing input: " + input);
 
         // Tokenizer (char-by-char state machine)
-        List<Token> tokens = new java.util.ArrayList<>();
+        List<Token> tokens = new ArrayList<>();
 
         enum State { NORMAL, IN_SINGLE_QUOTE, IN_DOUBLE_QUOTE}
         State state = State.NORMAL;
@@ -236,7 +254,7 @@ public class ShellParser {
         // Traverse the token list accumulating WORDs into the current segment
         // On REDIRECT/APPEND: consume the next WORD as the redirect target
         // ON PIPE/AND/SEMICOLON: finalize the current segment, record operator
-        List<String> currentWords = new java.util.ArrayList<>();
+        List<String> currentWords = new ArrayList<>();
         RedirectInfo currentRedirect = null;
         String currentInputRedirect = null;
         boolean expectRedirectTarget = false;
@@ -286,7 +304,7 @@ public class ShellParser {
                 // Finalizing the current segment before recording the operator
                 if (!currentWords.isEmpty()) {
                     segments.add(buildSegment(currentWords, currentRedirect, currentInputRedirect));
-                    currentWords = new java.util.ArrayList<>();
+                    currentWords.clear();
                     currentRedirect = null;
                     currentInputRedirect = null;
                 }
@@ -306,8 +324,7 @@ public class ShellParser {
                 : "Invariant broken after parse: operators=" + operators.size()
                 + " segments=" + segments.size();
 
-        LOGGER.fine(() -> "Parse complete: " + segments.size()
-                + " segment(s), " + operators.size() + " operator(s)");
+        LOGGER.fine(() -> "Parse complete: " + new ParsedPlan(segments, operators));
 
         return new ParsedPlan(segments, operators);
     }
@@ -345,3 +362,4 @@ public class ShellParser {
         }
     }
 }
+
