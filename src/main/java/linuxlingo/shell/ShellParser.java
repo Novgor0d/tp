@@ -129,7 +129,9 @@ public class ShellParser {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < segments.size(); i++) {
                 sb.append(segments.get(i));
-                if (i < operators.size()) sb.append(" [").append(operators.get(i)).append("]");
+                if (i < operators.size()) {
+                    sb.append(" [").append(operators.get(i)).append("]");
+                }
             }
             return sb.toString();
         }
