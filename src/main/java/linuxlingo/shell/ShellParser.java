@@ -46,13 +46,8 @@ public class ShellParser {
         public final TokenType type;
 
         public Token(String value, TokenType type) throws IllegalArgumentException {
-            if (value == null) {
-                throw new IllegalArgumentException("Token value must not be null");
-            }
-            if (type == null) {
-                throw new IllegalArgumentException("Token type must not be null");
-            }
-
+            Preconditions.requireNonNull(value, "Token.value");
+            Preconditions.requireNonNull(type, "Token.type");
             this.value = value;
             this.type = type;
         }
