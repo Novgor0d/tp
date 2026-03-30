@@ -180,37 +180,38 @@ public class ExamSession {
                 boolean correct = handlePracQuestion(pq);
                 result.addResult(q, "", correct);
             } else {
-                ui.println("[Q" + (i + 1) + "/" + questions.size() + "] " + q.present());
-                String userAnswer = ui.readLine("Your answer: ");
-                if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
-                    LOGGER.log(Level.FINE, "Question skipped by user at index {0}", i + 1);
-                    result.addResult(q, "", false);
-                } else {
-                    boolean correct = q.checkAnswer(userAnswer);
-                    if (correct) {
-                        ui.println("✓ Correct!");
-                    } else {
-                        ui.println("✗ Incorrect.");
-                    }
-                    ui.println("Explanation: " + q.getExplanation());
-                    result.addResult(q, userAnswer, correct);
-                }
+                int index = i + 1;
+                presentNonPracQuestion(q, index, questions.size(), result);
             }
         }
         return result;
     }
 
+    private void presentNonPracQuestion(Question q, int index, int total, ExamResult result) {
+        ui.println("[Q" + index + "/" + total + "] " + q.present());
+        String userAnswer = ui.readLine("Your answer: ");
+        if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
+            LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
+            result.addResult(q, "", false);
+            return;
+        }
+
+        boolean correct = q.checkAnswer(userAnswer);
+        if (correct) {
+            ui.println("✓ Correct!");
+        } else {
+            ui.println("✗ Incorrect.");
+        }
+        ui.println("Explanation: " + q.getExplanation());
+        result.addResult(q, userAnswer, correct);
+    }
+
     /**
-     * Present a single question and collect the user's answer.
+     * Present a single question in single-random-question mode.
      *
-     * <p>For MCQ and FITB: prompt "Your answer: ", check with {@code q.checkAnswer()}.</p>
-     * <p>For PRAC: open a temporary shell session, then check with
-     * {@code ((PracQuestion) q).checkVfs(vfs)}.</p>
-     *
-     * @param q     the question
-     * @param index 1-based question number
-     * @param total total questions in this exam
-     * @return true if the user answered correctly
+     * <p>Currently, only PRAC questions perform interactive shell checks here.
+     * For non-PRAC questions this method returns false and is not used by
+     * {@link #runExam(List)}.</p>
      */
     private boolean presentQuestion(Question q, int index, int total) {
         Objects.requireNonNull(q, "question must not be null");

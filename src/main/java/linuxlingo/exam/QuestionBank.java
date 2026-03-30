@@ -72,10 +72,15 @@ public class QuestionBank {
         return sorted;
     }
 
+    /** Internal helper to get the underlying list of questions for a topic. */
+    private List<Question> rawTopicQuestions(String topic) {
+        return topics.getOrDefault(topic, Collections.emptyList());
+    }
+
     /** Return all questions for a topic, or empty list if unknown. */
     public List<Question> getQuestions(String topic) {
         Objects.requireNonNull(topic, "topic must not be null");
-        return new ArrayList<>(topics.getOrDefault(topic, Collections.emptyList()));
+        return new ArrayList<>(rawTopicQuestions(topic));
     }
 
     /**
@@ -100,7 +105,8 @@ public class QuestionBank {
 
     /** Return the number of questions in a topic. */
     public int getQuestionCount(String topic) {
-        return getQuestions(topic).size();
+        Objects.requireNonNull(topic, "topic must not be null");
+        return rawTopicQuestions(topic).size();
     }
 
     /** Check whether the given topic has been loaded. */
@@ -109,17 +115,23 @@ public class QuestionBank {
         return topics.containsKey(topic);
     }
 
+    /** Internal helper to return a flattened list of all questions across topics. */
+    private List<Question> allQuestions() {
+        List<Question> all = new ArrayList<>();
+        for (List<Question> questions : topics.values()) {
+            all.addAll(questions);
+        }
+        return all;
+    }
+
     /**
      * Return one random question from all topics, or null if none available.
      */
     public Question getRandomQuestion() {
-        List<Question> allQuestions = new ArrayList<>();
-        for (List<Question> questions : topics.values()) {
-            allQuestions.addAll(questions);
-        }
-        if (allQuestions.isEmpty()) {
+        List<Question> all = allQuestions();
+        if (all.isEmpty()) {
             return null;
         }
-        return allQuestions.get(new Random().nextInt(allQuestions.size()));
+        return all.get(new Random().nextInt(all.size()));
     }
 }

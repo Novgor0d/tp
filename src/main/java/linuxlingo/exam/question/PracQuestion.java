@@ -33,10 +33,6 @@ import linuxlingo.shell.vfs.VirtualFileSystem;
  *   <li>New checkpoint types: NOT_EXISTS, CONTENT_EQUALS, PERM</li>
  *   <li>applySetup() to prepare VFS before user interaction</li>
  * </ul>
- *
- * TODO: Member D should implement:
- * - applySetup() logic for MKDIR, FILE, PERM setup types
- * - Integrate with ExamSession for setup application before user interaction
  */
 public class PracQuestion extends Question {
     private final List<Checkpoint> checkpoints;
