@@ -36,7 +36,8 @@ public class AliasCommand implements Command {
         return setAlias(session, args[0]);
     }
 
-    /** Print all current aliases
+    /**
+     * Print all current aliases
      * format for printing is name = 'value'
      */
     private CommandResult listAliases(ShellSession session) {

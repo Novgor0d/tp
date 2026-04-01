@@ -43,7 +43,8 @@ public class HistoryCommand implements Command {
         return formatHistory(history, 0);
     }
 
-    /** Show only the last n entries;
+    /**
+     * Show only the last n entries;
      * returns an error if n is not a valid integer
      */
     private CommandResult showLastN(List<String> history, String nStr) {
