@@ -52,11 +52,11 @@ public class HistoryCommand implements Command {
         try {
             n = Integer.parseInt(nStr);
         } catch (NumberFormatException e) {
-            return CommandResult.error("history: invalid option: " + nStr);
+            return CommandResult.error("history: numeric argument required");
         }
 
         if ( n < 0) {
-            return CommandResult.error("history: negative count not allowed");
+            return CommandResult.error("history: invalid option: " + nStr);
         }
 
         int startIndex = Math.max(0, history.size() - n);

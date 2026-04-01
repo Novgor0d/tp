@@ -285,7 +285,7 @@ public class ShellSession {
 
                 // TODO v2.0 (Owner A): handle OR operator
                 if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
-                     break;
+                    break;
                 }
 
                 if (precedingOp != ShellParser.TokenType.PIPE) {
@@ -305,12 +305,7 @@ public class ShellSession {
             }
 
             // TODO v2.0 (Owner A): resolve alias before registry lookup
-            String resolvedName = segment.commandName;
-
-
-            // if (aliases.containsKey(resolvedName)) {
-            //     resolvedName = aliases.get(resolvedName);
-            // }
+            String resolvedName = resolveAlias(segment.commandName);
 
             String[] expandedArgs = expandGlobs(segment.args);
 
@@ -586,9 +581,9 @@ public class ShellSession {
     }
 
     /**
-     * Resolve a command name through the alias
+     * Resolve a command name through the alias map
      *
-     * @param name the raw command name (possible an alias)
+     * @param name the raw command name (possibly an alias)
      * @return the resolved command name
      */
     private String resolveAlias(String name) {

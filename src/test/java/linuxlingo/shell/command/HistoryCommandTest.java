@@ -26,16 +26,7 @@ public class HistoryCommandTest {
         command = new HistoryCommand();
     }
 
-    // v2.0 stub test — execute() returns "not yet implemented"
-    @Test
-    public void historyCommand_stub_returnsNotImplemented() {
-        CommandResult result = command.execute(session, new String[]{}, null);
-        assertFalse(result.isSuccess());
-        assertTrue(result.getStderr().contains("not yet implemented"));
-    }
-
     @Nested
-    @Disabled("v2.0 — history execute() to be implemented")
     class BasicHistory {
         @Test
         public void emptyHistory_returnsEmpty() {
@@ -83,7 +74,6 @@ public class HistoryCommandTest {
     }
 
     @Nested
-    @Disabled("v2.0 — history execute() to be implemented")
     class HistoryLimit {
         @Test
         public void limitN_showsLastNEntries() {
@@ -143,7 +133,6 @@ public class HistoryCommandTest {
     }
 
     @Nested
-    @Disabled("v2.0 — history execute() to be implemented")
     class HistoryClear {
         @Test
         public void clearFlag_emptiesHistory() {
