@@ -27,6 +27,14 @@ public class UnaliasCommand implements Command {
         }
 
         Map<String, String> aliases = session.getAliases();
+
+        // -a flag clears all aliases
+        if (args[0].equals("-a")) {
+            aliases.clear();
+            return CommandResult.success("");
+        }
+
+
         StringBuilder errors = new StringBuilder();
 
         for (String name : args) {
@@ -34,9 +42,9 @@ public class UnaliasCommand implements Command {
                 if (errors.length() > 0) {
                     errors.append('\n');
                 }
-                errors.append("unalias: ").append(name).append(": nout found");
+                errors.append("unalias: ").append(name).append(": not found");
             } else {
-                aliases.remove(name)
+                aliases.remove(name);
             }
         }
 

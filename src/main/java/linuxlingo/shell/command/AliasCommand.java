@@ -27,6 +27,12 @@ public class AliasCommand implements Command {
         if (args.length == 0) {
             return listAliases(session);
         }
+
+        // name without = : show that specific alias
+        if (!args[0].contains("=")) {
+            return showAlias(session, args[0]);
+        }
+
         return setAlias(session, args[0]);
     }
 
@@ -55,7 +61,7 @@ public class AliasCommand implements Command {
      * @return
      */
     private CommandResult setAlias(ShellSession session, String definition) {
-        int eqIndex = definition.indexOf("=");
+        int eqIndex = definition.indexOf('=');
         if (eqIndex <= 0) {
             return CommandResult.error("alias: invalid format: '" + definition + "' (expected name=value)");
         }
@@ -77,6 +83,14 @@ public class AliasCommand implements Command {
             return s.substring(1, s.length() - 1);
         }
         return s;
+    }
+
+    private CommandResult showAlias(ShellSession session, String name) {
+        String value = session.getAliases().get(name);
+        if (value == null) {
+            return CommandResult.error("alias: " + name + ": not found");
+        }
+        return CommandResult.success("alias " + name + "='" + value + "'");
     }
 
     @Override
