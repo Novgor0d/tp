@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +36,6 @@ public class ShellSessionV2Test {
     }
 
     @Nested
-    @Disabled("v2.0 — alias resolution to be implemented")
     class AliasResolution {
         @Test
         public void alias_resolvedDuringExecution() {
@@ -143,7 +141,6 @@ public class ShellSessionV2Test {
     }
 
     @Nested
-    @Disabled("v2.0 — OR operator to be implemented")
     class OrOperator {
         @Test
         public void orOperator_firstSucceeds_secondSkipped() {
@@ -162,7 +159,6 @@ public class ShellSessionV2Test {
     }
 
     @Nested
-    @Disabled("v2.0 — input redirect to be implemented")
     class InputRedirect {
         @Test
         public void inputRedirect_readsFileAsStdin() {

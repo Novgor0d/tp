@@ -144,7 +144,7 @@ public class ShellSession {
             }
 
             // TODO v2.0 (Owner A): track command in commandHistory
-            // commandHistory.add(trimmed);
+            commandHistory.add(trimmed);
 
             executePlan(input);
         }
@@ -284,9 +284,9 @@ public class ShellSession {
                 }
 
                 // TODO v2.0 (Owner A): handle OR operator
-                // if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
-                //     break;
-                // }
+                if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
+                    break;
+                }
 
                 if (precedingOp != ShellParser.TokenType.PIPE) {
                     // SEMICOLON or AND (that passed): clear any leftover piped stdin
@@ -300,20 +300,17 @@ public class ShellSession {
             pipedStdin = null;
 
             // TODO v2.0 (Owner A): handle input redirect (< operator)
-            // if (segment.inputRedirect != null && !segment.inputRedirect.isEmpty()) {
-            //     stdin = vfs.readFile(segment.inputRedirect, workingDir);
-            // }
+            if (segment.inputRedirect != null && !segment.inputRedirect.isEmpty()) {
+                stdin = vfs.readFile(segment.inputRedirect, workingDir);
+            }
 
             // TODO v2.0 (Owner A): resolve alias before registry lookup
-            // String resolvedName = segment.commandName;
-            // if (aliases.containsKey(resolvedName)) {
-            //     resolvedName = aliases.get(resolvedName);
-            // }
+            String resolvedName = resolveAlias(segment.commandName);
 
             String[] expandedArgs = expandGlobs(segment.args);
 
-            // ── v1.0: Look up command in registry ──
-            Command command = registry.get(segment.commandName);
+            // v1.0: Look up command in registry (now uses resolved name)
+            Command command = registry.get(resolvedName);
             if (command == null) {
                 String errorMsg = segment.commandName + ": command not found";
                 LOGGER.log(Level.WARNING, "Command not found: ''{0}''", segment.commandName);
@@ -581,5 +578,20 @@ public class ShellSession {
         } catch (RuntimeException e) {
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * Resolve a command name through the alias map
+     *
+     * @param name the raw command name (possibly an alias)
+     * @return the resolved command name
+     */
+    private String resolveAlias(String name) {
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        String resolved = name;
+        while (aliases.containsKey(resolved) && visited.add(resolved)) {
+            resolved = aliases.get(resolved);
+        }
+        return resolved;
     }
 }
