@@ -4,7 +4,7 @@ start
 :Tokenize (char-by-char state machine);
 note right
   States: NORMAL, IN_SINGLE_QUOTE, IN_DOUBLE_QUOTE
-  Recognizes: |, ||, >, >>, <, &&, ;
+  Recognizes: <U+007C>, <U+007C><U+007C>, >, >>, <, &&, ;
 end note
 :Split tokens into Segments;
 note right
