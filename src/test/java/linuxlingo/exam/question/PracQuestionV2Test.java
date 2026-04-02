@@ -5,7 +5,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import linuxlingo.exam.Checkpoint;
@@ -17,8 +16,6 @@ import linuxlingo.shell.vfs.VirtualFileSystem;
  */
 public class PracQuestionV2Test {
 
-    // v2.0 @Disabled — applySetup() is a stub
-    @Disabled("v2.0 — applySetup() to be implemented")
     @Test
     public void applySetup_mkdir_createsDirectory() {
         VirtualFileSystem vfs = new VirtualFileSystem();
@@ -35,8 +32,6 @@ public class PracQuestionV2Test {
         assertTrue(vfs.exists("/home/user/project", "/"));
     }
 
-    // v2.0 @Disabled — applySetup() is a stub
-    @Disabled("v2.0 — applySetup() to be implemented")
     @Test
     public void applySetup_file_createsFileWithContent() {
         VirtualFileSystem vfs = new VirtualFileSystem();
@@ -52,8 +47,6 @@ public class PracQuestionV2Test {
         assertEquals("hello world", vfs.readFile("/home/user/data.txt", "/"));
     }
 
-    // v2.0 @Disabled — applySetup() is a stub
-    @Disabled("v2.0 — applySetup() to be implemented")
     @Test
     public void applySetup_perm_setsPermission() {
         VirtualFileSystem vfs = new VirtualFileSystem();
@@ -72,8 +65,6 @@ public class PracQuestionV2Test {
         assertTrue(cp.matches(vfs));
     }
 
-    // v2.0 @Disabled — applySetup() is a stub
-    @Disabled("v2.0 — applySetup() to be implemented")
     @Test
     public void applySetup_multipleItems_appliedInOrder() {
         VirtualFileSystem vfs = new VirtualFileSystem();
