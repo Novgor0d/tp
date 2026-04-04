@@ -1,0 +1,58 @@
+@startuml PracQuestionClassDiagram
+skinparam classAttributeIconSize 0
+
+class PracQuestion {
+    - checkpoints : List<Checkpoint>
+    - setupItems : List<SetupItem>
+    + checkVfs(vfs : VirtualFileSystem) : boolean
+    + applySetup(vfs : VirtualFileSystem) : void
+    + hasSetup() : boolean
+}
+
+class "PracQuestion.SetupItem" as SetupItem {
+    - type : SetupType
+    - path : String
+    - value : String
+}
+
+enum "PracQuestion.SetupItem.SetupType" as SetupType {
+    MKDIR
+    FILE
+    PERM
+}
+
+class Checkpoint {
+    - path : String
+    - expectedType : NodeType
+    - expectedContent : String
+    - expectedPermission : String
+    + matches(vfs : VirtualFileSystem) : boolean
+}
+
+enum "Checkpoint.NodeType" as NodeType {
+    DIR
+    FILE
+    NOT_EXISTS
+    CONTENT_EQUALS
+    PERM
+}
+
+class ExamSession {
+    + handlePracQuestion(q : PracQuestion)
+}
+
+class VirtualFileSystem {
+    + createDirectory(path, workingDir)
+    + createFile(path, workingDir) : RegularFile
+    + resolve(path, workingDir) : FileNode
+}
+
+PracQuestion --> "*" Checkpoint : verified by
+PracQuestion --> "*" SetupItem : configured with
+Checkpoint --> NodeType
+SetupItem --> SetupType
+ExamSession --> PracQuestion : presents
+ExamSession ..> VirtualFileSystem : creates temp VFS
+PracQuestion ..> VirtualFileSystem : applySetup() &\ncheckVfs()
+
+@enduml

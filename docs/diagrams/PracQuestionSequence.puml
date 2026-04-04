@@ -1,0 +1,40 @@
+@startuml PracQuestionSequence
+actor User
+participant ":ExamSession" as ES
+participant ":PracQuestion" as PQ
+participant ":VirtualFileSystem" as VFS
+participant ":ShellSession" as SS
+participant ":Ui" as UI
+
+ES -> VFS ** : vfsFactory.get()
+note right of VFS : Create fresh VFS
+
+ES -> PQ : hasSetup()
+PQ --> ES : true
+
+ES -> PQ : applySetup(tempVfs)
+note right of PQ
+  For each SetupItem:
+    MKDIR → createDirectory
+    FILE  → createFile + write content
+    PERM  → setPermission
+end note
+
+ES -> SS ** : new ShellSession(tempVfs, ui)
+ES -> UI : println(question text)
+ES -> SS : start()
+activate SS
+SS -> UI : readLine(prompt)
+UI --> SS : user commands...
+SS -> UI : readLine(prompt)
+UI --> SS : "exit"
+deactivate SS
+
+ES -> PQ : checkVfs(tempVfs)
+note right of PQ
+  Verify each Checkpoint
+  against final VFS state
+end note
+PQ --> ES : pass/fail
+
+@enduml

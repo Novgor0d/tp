@@ -12,8 +12,12 @@
 - [Implementation](#implementation)
   - [Shell Parsing and Execution](#shell-parsing-and-execution)
   - [Command Execution with Piping and Redirection](#command-execution-with-piping-and-redirection)
+  - [Alias Resolution and Variable Expansion](#alias-resolution-and-variable-expansion)
+  - [Glob Expansion](#glob-expansion)
+  - [Command Suggestion ("Did you mean?")](#command-suggestion-did-you-mean)
   - [VFS Environment Persistence](#vfs-environment-persistence)
   - [Exam Session Flow](#exam-session-flow)
+  - [Exam Component — Practical Questions](#exam-component--practical-questions)
   - [Question Parsing and Loading](#question-parsing-and-loading)
   - [Resource Extraction on First Run](#resource-extraction-on-first-run)
 - [Appendix A: Product Scope](#appendix-a-product-scope)
@@ -29,12 +33,11 @@
 - [AddressBook-Level3 (AB3)](https://se-education.org/addressbook-level3/) — Project structure and Developer Guide format adapted from SE-EDU.
 - [PlantUML](https://plantuml.com/) — Used for UML diagram generation.
 - [Gradle Shadow Plugin](https://github.com/johnrengelman/shadow) — Used for building fat JARs.
+- [JLine 3](https://github.com/jline/jline3) — Used for tab-completion and command history in the interactive shell.
 
 ---
 
 ## Setting Up, Getting Started
-
-Refer to the guide [Development Guide](DevelopmentGuide.md) for the full project structure and module responsibilities.
 
 **Prerequisites:**
 
@@ -67,36 +70,7 @@ Refer to the guide [Development Guide](DevelopmentGuide.md) for the full project
 
 The **Architecture Diagram** below gives a high-level overview of LinuxLingo.
 
-```plantuml
-@startuml
-skinparam componentStyle rectangle
-skinparam packageStyle rectangle
-
-package "LinuxLingo" {
-    [LinuxLingo\n(Main)] as Main
-    [CLI] as CLI
-    [Shell] as Shell
-    [Exam] as Exam
-    [Storage] as Storage
-    [VFS] as VFS
-}
-
-Main --> CLI : creates
-Main --> Shell : creates
-Main --> Exam : creates
-Main --> Storage : uses
-
-CLI --> Shell : dispatches to
-CLI --> Exam : dispatches to
-
-Shell --> VFS : operates on
-Shell ..> Storage : (via VfsSerializer)
-Exam --> VFS : creates temp VFS
-Exam --> Shell : creates temp ShellSession\nfor PRAC questions
-Exam ..> Storage : reads question banks
-
-@enduml
-```
+![Architecture Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ArchitectureDiagram.puml)
 
 **Main components of the architecture:**
 
@@ -121,35 +95,7 @@ The bulk of the app's work is done by the following components:
 
 The following sequence diagram shows the interactions when the user launches the app in interactive mode and types `shell`:
 
-```plantuml
-@startuml
-actor User
-participant ":LinuxLingo" as Main
-participant ":MainParser" as MP
-participant ":Ui" as UI
-participant ":ShellSession" as SS
-
-Main -> UI : new Ui()
-Main -> SS : new ShellSession(vfs, ui)
-Main -> MP : new MainParser(ui, shellSession, examSession)
-Main -> MP : run()
-activate MP
-MP -> UI : printWelcome()
-MP -> UI : readLine("linuxlingo> ")
-UI --> MP : "shell"
-MP -> SS : start()
-activate SS
-SS -> UI : readLine(prompt)
-UI --> SS : user commands...
-SS -> UI : readLine(prompt)
-UI --> SS : "exit"
-deactivate SS
-MP -> UI : readLine("linuxlingo> ")
-UI --> MP : "exit"
-MP -> UI : println("Goodbye!")
-deactivate MP
-@enduml
-```
+![Architecture Sequence Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ArchitectureSequenceDiagram.puml)
 
 ---
 
@@ -157,131 +103,39 @@ deactivate MP
 
 The CLI component consists of two classes: `Ui` and `MainParser`.
 
-```plantuml
-@startuml
-class Ui {
-    - scanner : Scanner
-    - out : PrintStream
-    - err : PrintStream
-    + readLine() : String
-    + readLine(prompt : String) : String
-    + println(message : String)
-    + printError(message : String)
-    + printWelcome()
-    + clearScreen()
-    + confirm(prompt : String) : boolean
-}
+![CLI Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/CliClassDiagram.puml)
 
-class MainParser {
-    - ui : Ui
-    - shellSession : ShellSession
-    - examSession : ExamSession
-    + run()
-    - parseAndExecute(input : String) : boolean
-    - handleExec(input : String)
-    - handleExam(parts : String[])
-    - printHelp()
-}
+**`Ui`** is the single point of contact for all user-facing I/O. It wraps `Scanner` for input and `PrintStream` for output. All components use `Ui` instead of directly calling `System.in`/`System.out`, making testing easier (injectable streams).
 
-MainParser --> Ui : uses
-MainParser --> "1" ShellSession : dispatches to
-MainParser --> "1" ExamSession : dispatches to
-@enduml
-```
-
-**`Ui`** is the single point of contact for all user-facing I/O. It wraps `Scanner` for input and `PrintStream` for output. All components use `Ui` instead of directly calling `System.in`/`System.out`, making testing easier.
-
-**`MainParser`** implements the top-level REPL loop. It reads user input and dispatches to one of: `shell` (enter Shell Simulator), `exam` (start an exam), `exec` (one-shot shell command), `help`, or `exit`.
+**`MainParser`** implements the top-level REPL loop. It reads user input and dispatches to one of: `shell` (enter Shell Simulator), `exam` (start an exam), `exec` (one-shot shell command), `help`, or `exit`/`quit`.
 
 ---
 
 ### Shell Component
 
-The Shell component handles command parsing, execution, and the interactive REPL.
+The Shell component handles command parsing, execution, and the interactive REPL. It is the largest component in LinuxLingo.
 
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
+The following class diagram shows the key classes. For clarity, only representative command implementations are shown; the full set of 36 commands follows the same `Command` interface.
 
-interface Command {
-    + execute(session, args, stdin) : CommandResult
-    + getUsage() : String
-    + getDescription() : String
-}
-
-class CommandResult {
-    - stdout : String
-    - stderr : String
-    - exitCode : int
-    - shouldExit : boolean
-    + {static} success(stdout) : CommandResult
-    + {static} error(stderr) : CommandResult
-    + {static} exit() : CommandResult
-}
-
-class ShellParser {
-    + parse(input : String) : ParsedPlan
-}
-
-class "ShellParser.ParsedPlan" as ParsedPlan {
-    + segments : List<Segment>
-    + operators : List<TokenType>
-}
-
-class "ShellParser.Segment" as Segment {
-    + commandName : String
-    + args : String[]
-    + redirect : RedirectInfo
-}
-
-class ShellSession {
-    - vfs : VirtualFileSystem
-    - workingDir : String
-    - lastExitCode : int
-    - registry : CommandRegistry
-    + start()
-    + executeOnce(input) : CommandResult
-    - executePlan(input)
-    - runPlan(input) : CommandResult
-}
-
-class CommandRegistry {
-    - commands : Map<String, Command>
-    + get(name) : Command
-    + getAllNames() : Set<String>
-}
-
-ShellSession --> ShellParser : creates
-ShellSession --> CommandRegistry : looks up commands
-ShellSession --> VirtualFileSystem : operates on
-ShellParser ..> ParsedPlan : creates
-ParsedPlan *-- Segment
-CommandRegistry --> "*" Command : stores
-Command ..> CommandResult : returns
-
-class CdCommand implements Command
-class LsCommand implements Command
-class CatCommand implements Command
-class GrepCommand implements Command
-note "22 more command\nimplementations..." as N1
-N1 .. CdCommand
-@enduml
-```
+![Shell Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ShellClassDiagram.puml)
 
 The Shell component:
 
 - Uses `ShellParser` to tokenize and parse raw input into a `ParsedPlan` (a list of `Segment` objects connected by operators).
-- `ShellSession` iterates through segments, looking up each command name in `CommandRegistry`, executing them, and chaining results via pipes, `&&`, or `;`.
+- `ShellSession` iterates through segments, looking up each command name in `CommandRegistry`, executing them, and chaining results via pipes, `&&`, `||`, or `;`.
+- Before command lookup, `ShellSession` resolves aliases, expands combined flags (e.g., `-la` → `-l -a`), expands glob patterns against the VFS, and expands shell variables (`$USER`, `$HOME`, `$PWD`).
 - Each `Command` implementation receives the current `ShellSession` (for VFS access and session state), parsed arguments, and optional piped stdin. It returns a `CommandResult` containing stdout, stderr, and an exit code.
 
-**Supported commands (26 total):**
+**Supported commands (36 total):**
 
 | Category | Commands |
 | -------- | -------- |
 | Navigation | `cd`, `ls`, `pwd` |
-| File Operations | `mkdir`, `touch`, `rm`, `cp`, `mv`, `cat`, `echo` |
+| File Operations | `mkdir`, `touch`, `rm`, `cp`, `mv`, `cat`, `echo`, `diff`, `tee` |
 | Text Processing | `head`, `tail`, `grep`, `find`, `wc`, `sort`, `uniq` |
 | Permissions | `chmod` |
+| Information | `man`, `tree`, `which`, `whoami`, `date` |
+| Alias & History | `alias`, `unalias`, `history` |
 | Environment | `save`, `load`, `reset`, `envlist`, `envdelete` |
 | Utility | `help`, `clear` |
 
@@ -291,120 +145,13 @@ The Shell component:
 
 The Exam component handles question presentation, answer checking, and score tracking.
 
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
-
-abstract class Question {
-    # type : QuestionType
-    # difficulty : Difficulty
-    # questionText : String
-    # explanation : String
-    + {abstract} present() : String
-    + {abstract} checkAnswer(answer) : boolean
-    + formatHeader() : String
-}
-
-enum "Question.QuestionType" as QT {
-    MCQ
-    FITB
-    PRAC
-}
-
-enum "Question.Difficulty" as QD {
-    EASY
-    MEDIUM
-    HARD
-}
-
-class McqQuestion extends Question {
-    - options : LinkedHashMap<Character, String>
-    - correctAnswer : char
-}
-
-class FitbQuestion extends Question {
-    - acceptedAnswers : List<String>
-}
-
-class PracQuestion extends Question {
-    - checkpoints : List<Checkpoint>
-    - setupItems : List<SetupItem>
-    + checkVfs(vfs : VirtualFileSystem) : boolean
-    + applySetup(vfs : VirtualFileSystem) : void
-    + hasSetup() : boolean
-}
-
-class "PracQuestion.SetupItem" as SetupItem {
-    - type : SetupType
-    - path : String
-    - value : String
-}
-
-enum "PracQuestion.SetupItem.SetupType" as SetupType {
-    MKDIR
-    FILE
-    PERM
-}
-
-class Checkpoint {
-    - path : String
-    - expectedType : NodeType
-    - expectedContent : String
-    - expectedPermission : String
-    + matches(vfs : VirtualFileSystem) : boolean
-}
-
-enum "Checkpoint.NodeType" as NodeType {
-    DIR
-    FILE
-    NOT_EXISTS
-    CONTENT_EQUALS
-    PERM
-}
-
-class QuestionBank {
-    - topics : Map<String, List<Question>>
-    + load(directory : Path) : void
-    + getTopics() : List<String>
-    + getQuestions(topic, count, random) : List<Question>
-    + getRandomQuestion() : Question
-}
-
-class ExamSession {
-    - questionBank : QuestionBank
-    - ui : Ui
-    - vfsFactory : Supplier<VirtualFileSystem>
-    + startInteractive() : void
-    + startWithArgs(topic, count, random) : void
-    + runOneRandom() : void
-    + listTopics() : void
-}
-
-class ExamResult {
-    - results : List<QuestionResult>
-    + addResult(question, userAnswer, correct) : void
-    + getScore() : int
-    + display() : String
-}
-
-Question --> QT
-Question --> QD
-PracQuestion --> "*" Checkpoint : verified by
-PracQuestion --> "*" SetupItem : uses
-Checkpoint --> NodeType
-SetupItem --> SetupType
-ExamSession --> QuestionBank : queries
-ExamSession --> ExamResult : accumulates
-ExamSession ..> ShellSession : creates temp\n(for PRAC)
-QuestionBank --> "*" Question : stores
-@enduml
-```
+![Exam Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ExamClassDiagram.puml)
 
 The Exam component:
 
 - `QuestionBank` loads question data files from `data/questions/` (via `QuestionParser`) and organizes them by topic.
 - `ExamSession` orchestrates exam sessions with three entry points: interactive mode, direct CLI args, and single-random-question mode.
-- Three question types are supported: `McqQuestion` (multiple choice), `FitbQuestion` (fill in the blank), and `PracQuestion` (practical — verified by checking VFS state).
+- Three question types are supported: `McqQuestion` (multiple choice), `FitbQuestion` (fill in the blank), and `PracQuestion` (practical — verified by checking VFS state against `Checkpoint` objects).
 - `ExamResult` tracks per-question outcomes and computes scores.
 
 ---
@@ -413,54 +160,7 @@ The Exam component:
 
 The Storage component handles all real disk I/O operations.
 
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
-
-class Storage {
-    + {static} readFile(path) : String
-    + {static} readLines(path) : List<String>
-    + {static} writeFile(path, content)
-    + {static} exists(path) : boolean
-    + {static} delete(path) : boolean
-    + {static} listFiles(dir, ext) : List<Path>
-    + {static} ensureDirectory(dir)
-    + {static} getDataDir() : Path
-}
-
-class VfsSerializer {
-    + {static} serialize(vfs, workingDir) : String
-    + {static} deserialize(text) : DeserializedVfs
-    + {static} saveToFile(vfs, workingDir, name)
-    + {static} loadFromFile(name) : DeserializedVfs
-    + {static} listEnvironments() : List<String>
-    + {static} deleteEnvironment(name) : boolean
-}
-
-class "VfsSerializer.DeserializedVfs" as DV {
-    - vfs : VirtualFileSystem
-    - workingDir : String
-}
-
-class QuestionParser {
-    + {static} parseFile(path) : List<Question>
-    + {static} getTopicName(path) : String
-}
-
-class ResourceExtractor {
-    + {static} extractIfNeeded(dataDir)
-}
-
-class StorageException extends Exception
-
-VfsSerializer --> Storage : uses
-VfsSerializer ..> DV : creates
-QuestionParser --> Storage : uses
-ResourceExtractor --> Storage : uses
-VfsSerializer ..> StorageException : throws
-Storage ..> StorageException : throws
-@enduml
-```
+![Storage Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/StorageClassDiagram.puml)
 
 The Storage component:
 
@@ -475,80 +175,15 @@ The Storage component:
 
 The VFS component provides an in-memory simulated Linux file system.
 
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
-
-abstract class FileNode {
-    - name : String
-    - permission : Permission
-    - parent : Directory
-    + getName() : String
-    + getAbsolutePath() : String
-    + getPermission() : Permission
-    + {abstract} isDirectory() : boolean
-    + {abstract} deepCopy() : FileNode
-}
-
-class Directory extends FileNode {
-    - children : LinkedHashMap<String, FileNode>
-    + addChild(child : FileNode)
-    + removeChild(name : String)
-    + getChild(name) : FileNode
-    + getChildren() : List<FileNode>
-    + hasChild(name) : boolean
-}
-
-class RegularFile extends FileNode {
-    - content : String
-    + getContent() : String
-    + setContent(s : String)
-    + appendContent(s : String)
-    + getSize() : int
-}
-
-class Permission {
-    - bits : boolean[9]
-    + {static} fromOctal(octal) : Permission
-    + {static} fromSymbolic(symbolic, current) : Permission
-    + canOwnerRead() : boolean
-    + canOwnerWrite() : boolean
-    + canOwnerExecute() : boolean
-    + toString() : String
-}
-
-class VirtualFileSystem {
-    - root : Directory
-    + resolve(path, workingDir) : FileNode
-    + createFile(...) : RegularFile
-    + createDirectory(...) : Directory
-    + delete(path, workingDir, recursive, force)
-    + copy(src, dest, workingDir, recursive)
-    + move(src, dest, workingDir)
-    + readFile(path, workingDir) : String
-    + writeFile(path, workingDir, content, append)
-    + listDirectory(...) : List<FileNode>
-    + findByName(...) : List<FileNode>
-    + exists(path, workingDir) : boolean
-    + deepCopy() : VirtualFileSystem
-}
-
-class VfsException extends RuntimeException
-
-VirtualFileSystem *-- "1" Directory : root
-Directory *-- "*" FileNode : children
-FileNode --> "1" Permission
-VirtualFileSystem ..> VfsException : throws
-
-@enduml
-```
+![VFS Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/VfsClassDiagram.puml)
 
 Key design decisions for VFS:
 
 - **All path operations go through `VirtualFileSystem`** — shell commands never use `java.io` or `java.nio.file` for simulated files. This ensures a fully isolated, deterministic simulation.
 - The VFS uses a **tree structure** of `FileNode` objects. `Directory` holds a `LinkedHashMap` of children for ordered, O(1) lookup by name.
 - **`Permission`** models Unix 9-character permission strings (`rwxr-xr-x`), supporting both octal and symbolic notation for `chmod`.
-- **`deepCopy()`** is provided at every level (VFS, Directory, RegularFile) to enable snapshot-based features (e.g., creating a temp VFS for PRAC exam questions).
+- **`deepCopy()`** is provided at every level (VFS, Directory, RegularFile) to enable snapshot-based features (e.g., creating a temp VFS for PRAC exam questions, saving environments).
+- The default VFS tree contains `/home/user`, `/tmp`, and `/etc` (with a `hostname` file).
 
 ---
 
@@ -682,34 +317,7 @@ The `shouldExit()` flag on `CommandResult` allows commands like `exit` to signal
 
 The following sequence diagram shows how `echo hello | grep h > output.txt` is executed:
 
-```plantuml
-@startuml
-participant ":ShellSession" as SS
-participant ":ShellParser" as SP
-participant ":CommandRegistry" as CR
-participant ":EchoCommand" as Echo
-participant ":GrepCommand" as Grep
-participant ":VirtualFileSystem" as VFS
-
-SS -> SP : parse("echo hello | grep h > output.txt")
-SP --> SS : ParsedPlan{segments=[echo,grep], operators=[PIPE]}
-
-SS -> CR : get("echo")
-CR --> SS : EchoCommand
-SS -> Echo : execute(session, ["hello"], null)
-Echo --> SS : CommandResult{stdout="hello"}
-
-note over SS : Preceding operator is PIPE\nForward stdout as stdin
-
-SS -> CR : get("grep")
-CR --> SS : GrepCommand
-SS -> Grep : execute(session, ["h"], "hello")
-Grep --> SS : CommandResult{stdout="hello"}
-
-note over SS : Segment has redirect: > output.txt
-SS -> VFS : writeFile("output.txt", workingDir, "hello", false)
-@enduml
-```
+![Echo Grep Pipe Execution Sequence](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/EchoGrepPipeSequence.puml)
 
 <!-- When a command name is not found in the registry, `runPlan()` calls `suggestCommand()`
 before printing the error. This method computes the Levenshtein edit distance between
@@ -722,42 +330,67 @@ them, if no VFS paths match the pattern, the literal argument is passed through 
 
 | Operator | Symbol | Behavior |
 | -------- | ------ | -------- |
-| `PIPE` | `\|` | stdout of segment N becomes stdin of segment N+1 |
+| `PIPE` | &#124; | stdout of segment N becomes stdin of segment N+1 |
 | `AND` | `&&` | Segment N+1 runs only if segment N succeeded (exit code 0) |
+| `OR` | `\|\|` | Segment N+1 runs only if segment N failed (exit code ≠ 0) |
 | `SEMICOLON` | `;` | Segment N+1 always runs regardless of exit code |
 
 ---
 
 ### Command Execution with Piping and Redirection
 
-All 26 commands follow the same implementation pattern:
+All 36 commands follow the same implementation pattern:
 
 1. Parse flags and arguments from `args[]`.
 2. Determine input source: file arguments take priority over piped `stdin`.
 3. Call VFS methods on `session.getVfs()`.
-4. Catch `VfsException` → return `CommandResult.error("cmdName: " + e.getMessage())`.
+4. Catch `VfsException` → return `CommandResult.error(...)`.
 5. Return `CommandResult.success(output)`.
 
 The following activity diagram shows the input resolution logic for commands that support both file arguments and piped stdin (e.g., `cat`, `head`, `tail`, `grep`, `sort`, `uniq`, `wc`):
 
-```plantuml
-@startuml
-start
-if (File arguments provided?) then (yes)
-    :Read content from VFS file(s);
-else (no)
-    if (stdin != null?) then (yes)
-        :Use piped stdin as content;
-    else (no)
-        :Return error\n"cmdName: missing operand";
-        stop
-    endif
-endif
-:Process content\n(text operations);
-:Return CommandResult.success(output);
-stop
-@enduml
-```
+![Input Resolution Activity Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/InputResolutionActivity.puml)
+
+**Input redirection** (`<`) is handled by the execution engine before command execution: if a segment has an `inputRedirect` file, the engine reads that file's content from the VFS and passes it as `stdin` to the command.
+
+---
+
+### Alias Resolution and Variable Expansion
+
+**Aliases** allow users to define shortcuts for commonly used commands (e.g., `alias ll='ls -la'`). The alias system is implemented in `ShellSession`:
+
+- Aliases are stored in a `LinkedHashMap<String, String>` within `ShellSession`.
+- Before each command lookup, `resolveAlias()` repeatedly resolves the command name through the alias map. A visited set prevents infinite loops from circular alias definitions.
+- Aliases persist only within the current shell session and are not saved across restarts.
+
+**Variable expansion** supports a limited set of shell variables:
+
+| Variable | Value |
+| -------- | ----- |
+| `$USER` | `user` |
+| `$HOME` | `/home/user` |
+| `$PWD` | Current working directory |
+| `$?` | Exit code of the last command |
+
+Variables inside single-quoted strings are not expanded (single-quoted tokens are marked with a `\0` prefix during tokenization). The `expandVariablesInString()` method scans each argument character-by-character, recognises `$` followed by an alphanumeric name or `?`, and substitutes the resolved value.
+
+---
+
+### Glob Expansion
+
+Glob patterns (`*` and `?`) in command arguments are expanded against the VFS before the command receives them:
+
+1. **Detection:** Each argument is checked for `*` or `?` characters. Single-quoted tokens (marked with a `\0` prefix) skip expansion entirely.
+2. **Matching:** For patterns without a path separator (e.g., `*.txt`), only immediate children of the current directory are matched. For patterns with path separators (e.g., `/home/*.txt`), `VirtualFileSystem.findByName()` searches the specified subtree.
+3. **Fallback:** If no VFS paths match a glob pattern, the literal pattern is passed through unchanged (standard shell behaviour).
+
+Matching uses `VirtualFileSystem.matchesWildcard()`, which converts `*` → `.*` and `?` → `.` to build a regex.
+
+---
+
+### Command Suggestion ("Did you mean?")
+
+When a command name is not found in the registry, `ShellSession.suggestCommand()` computes the Levenshtein edit distance between the mistyped input and every registered command name using dynamic programming. If the closest match has an edit distance ≤ 2, a hint like `Did you mean 'ls'?` is displayed alongside the error.
 
 ---
 
@@ -767,40 +400,7 @@ Users can save and load VFS snapshots through the `save`, `load`, `reset`, `envl
 
 **Save/Load flow:**
 
-```plantuml
-@startuml
-participant ":SaveCommand" as Save
-participant ":VfsSerializer" as VS
-participant ":Storage" as S
-
-== Save Environment ==
-Save -> VS : serialize(vfs, workingDir)
-note right of VS
-  Depth-first walk of VFS tree.
-  Emit: TYPE | PATH | PERMISSIONS | CONTENT
-  Escape newlines, pipes, backslashes.
-end note
-VS --> Save : envFileContent : String
-Save -> VS : saveToFile(vfs, workingDir, name)
-VS -> S : writeFile(path, content)
-
-== Load Environment ==
-participant ":LoadCommand" as Load
-Load -> VS : loadFromFile(name)
-VS -> S : readFile(path)
-S --> VS : fileContent : String
-VS -> VS : deserialize(fileContent)
-note right of VS
-  Parse header for workingDir.
-  For each line: create Directory
-  or RegularFile with Permission.
-  Unescape content.
-end note
-VS --> Load : DeserializedVfs{vfs, workingDir}
-Load -> Load : session.replaceVfs(vfs)
-Load -> Load : session.setWorkingDir(workingDir)
-@enduml
-```
+![Save Load Sequence Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/SaveLoadSequence.puml)
 
 **`.env` file format:**
 
@@ -826,50 +426,7 @@ The exam module supports three entry modes and three question types.
 
 **Interactive exam flow:**
 
-```plantuml
-@startuml
-actor User
-participant ":ExamSession" as ES
-participant ":QuestionBank" as QB
-participant ":Ui" as UI
-participant ":ExamResult" as ER
-
-User -> ES : startInteractive()
-ES -> QB : getTopics()
-QB --> ES : topics
-ES -> ES : listTopics()
-ES -> UI : readLine("Select topic: ")
-UI --> ES : topicSelection
-
-ES -> UI : readLine("How many questions?")
-UI --> ES : countInput
-
-ES -> QB : getQuestions(topic, count, false)
-QB --> ES : questions
-
-loop for each question
-    alt MCQ or FITB
-        ES -> UI : println(question.present())
-        ES -> UI : readLine("Your answer: ")
-        UI --> ES : userAnswer
-        ES -> ES : question.checkAnswer(userAnswer)
-        ES -> ER : addResult(question, answer, correct)
-    else PRAC
-        ES -> ES : handlePracQuestion(q)
-        note right
-            Creates temp VFS + ShellSession.
-            User types commands until "exit".
-            q.checkVfs(tempVfs) verifies result.
-        end note
-        ES -> ER : addResult(question, "", correct)
-    end
-end
-
-ES -> ER : display()
-ER --> ES : "Score: 7/10 (70%)"
-ES -> UI : println(result)
-@enduml
-```
+![Exam Session Sequence Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ExamSessionSequence.puml)
 
 **PRAC question handling:**
 
@@ -879,7 +436,7 @@ For practical questions, `ExamSession.handlePracQuestion()`:
 2. Creates a temporary `ShellSession` with this VFS.
 3. Calls `tempSession.start()` — the user types shell commands.
 4. When the user types `exit`, the temporary session ends.
-5. Calls `PracQuestion.checkVfs(tempVfs)` which verifies each `Checkpoint` (expected path + node type).
+5. Calls `PracQuestion.checkVfs(tempVfs)` which verifies each `Checkpoint` (expected path + node type, content, or permissions).
 
 ---
 
@@ -938,18 +495,18 @@ This keeps the public interface between modules unchanged: the CLI, Shell, and S
 
 #### 2. Class Diagram (PracQuestion V2)
 
-![ClassDiagramPracQuestion](imgs/ClassDiagramPracQuestion.png)
+![PracQuestion Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/PracQuestionClassDiagram.puml)
 
 ---
 
 #### 3. Sequence Flow — PRAC Question with Setup
 
-![SequenceFlowPracQuestion](imgs/SequenceFlowPracQuestion.png)
+![PracQuestion Sequence Flow](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/PracQuestionSequence.puml)
 
 ---
 
 #### 4. Activity Diagram — Applying Setup Items
-![ActivityDiagramPracQuestion.png](imgs/ActivityDiagramPracQuestion.png)
+![PracQuestion Setup Activity Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/PracQuestionSetupActivity.puml)
 
 ---
 
@@ -1042,36 +599,7 @@ Alternatives such as embedding questions directly in Java code or using a more c
 the current design keeps parsing logic centralized in QuestionParser and lets the rest of the exam module work purely with typed Question objects.
 **Data flow:**
 
-```plantuml
-@startuml
-start
-:ResourceExtractor.extractIfNeeded(dataDir);
-note right: Copies bundled .txt files\nfrom JAR to data/questions/\non first run
-
-:QuestionBank.load(questionsDir);
-
-:Storage.listFiles(dir, ".txt");
-
-while (for each .txt file)
-    :QuestionParser.parseFile(path);
-    :Read lines via Storage.readLines();
-    while (for each non-comment line)
-        :Split by " | " (limit 6);
-        if (type == "MCQ") then
-            :parseMcq() -> McqQuestion;
-        elseif (type == "FITB") then
-            :parseFitb() -> FitbQuestion;
-        elseif (type == "PRAC") then
-            :parsePrac() -> PracQuestion;
-        else
-            :Skip unknown type;
-        endif
-    endwhile
-    :Store questions under\ntopic name (from filename);
-endwhile
-stop
-@enduml
-```
+![Question Parsing Activity Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/QuestionParsingActivity.puml)
 
 **Question bank line format:**
 
@@ -1080,8 +608,8 @@ TYPE | DIFFICULTY | QUESTION_TEXT | ANSWER | OPTIONS | EXPLANATION
 ```
 
 - **MCQ** answer: single letter (e.g., `B`). Options: `A:text B:text C:text D:text`.
-- **FITB** answer: accepted answers separated by `|` (e.g., `pwd|PWD`).
-- **PRAC** answer: checkpoints as `path:TYPE` pairs (e.g., `/home/project:DIR,/home/project/readme.txt:FILE`).
+- **FITB** answer: accepted answers separated by `|` (e.g., `pwd|PWD`). Escaped pipes (`\|`) are treated as literal pipe characters.
+- **PRAC** answer: checkpoints as `path:TYPE` pairs (e.g., `/home/project:DIR,/home/readme.txt:FILE`). Optional setup items in the OPTIONS field (semicolon-separated).
 
 ---
 
@@ -1089,26 +617,9 @@ TYPE | DIFFICULTY | QUESTION_TEXT | ANSWER | OPTIONS | EXPLANATION
 
 `ResourceExtractor` ensures that bundled question bank files are available on disk.
 
-```plantuml
-@startuml
-start
-:Check if data/questions/ exists;
-if (directory exists?) then (yes)
-    :Skip extraction\n(user may have customized files);
-else (no)
-    :Create data/questions/ directory;
-    while (for each bundled .txt file)
-        :Class.getResourceAsStream("/questions/" + fileName);
-        :Files.copy(inputStream, targetPath);
-    endwhile
-endif
+![Resource Extraction Activity Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ResourceExtractionActivity.puml)
 
-:Ensure data/environments/ exists;
-stop
-@enduml
-```
-
-This design respects user customizations — once the questions directory exists, bundled resources are never overwritten.
+This design respects user customizations — once the questions directory exists, bundled resources are never overwritten. The five bundled question files cover: `file-management`, `navigation`, `permissions`, `piping-redirection`, and `text-processing`.
 
 ---
 
@@ -1144,14 +655,25 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 | `***` | student | see my exam score after completing a quiz | know how well I understand the material |
 | `**` | student | use piping to chain commands | understand how data flows between commands |
 | `**` | student | use output redirection (>, >>) | learn how to save command output to files |
+| `**` | student | use input redirection (<) | learn how to feed file content into commands |
 | `**` | student | save my VFS environment | continue practicing from where I left off |
 | `**` | student | load a previously saved environment | restore my practice workspace |
 | `**` | student | practice practical questions in a real shell | apply my knowledge hands-on |
 | `**` | student | use text processing commands (grep, sort, wc) | learn data manipulation on the command line |
 | `**` | student | change file permissions with chmod | understand Linux permission model |
+| `**` | student | define command aliases | create shortcuts for frequently used commands |
+| `**` | student | view my command history | recall and re-use previous commands |
+| `**` | student | use glob patterns (*.txt) | match multiple files at once |
+| `**` | student | use conditional execution (&&, \|\|) | understand command chaining logic |
+| `**` | student | use shell variables ($USER, $HOME, $PWD) | understand how variables work in a shell |
 | `*` | student | take a random question | get a quick knowledge check |
 | `*` | student | list and delete saved environments | manage my saved workspaces |
-| `*` | student | use conditional execution (&&) | understand command chaining logic |
+| `*` | student | read manual pages with `man` | learn about a command's usage |
+| `*` | student | see a directory tree with `tree` | visualize the file system structure |
+| `*` | student | get "Did you mean?" suggestions on typos | quickly correct mistyped commands |
+| `*` | student | use tab-completion in the shell | type commands more efficiently |
+| `*` | student | compare files with `diff` | learn to find differences between files |
+| `*` | student | use `tee` to save and display output | understand pipeline data capture |
 
 ---
 
@@ -1177,12 +699,15 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 | **MCQ** | Multiple Choice Question — presents options A/B/C/D; user selects one. |
 | **FITB** | Fill In The Blank — user types a free-form answer checked against accepted answers. |
 | **PRAC** | Practical question — user performs tasks in a temporary shell; VFS state is verified against checkpoints. |
-| **Checkpoint** | A path + expected node type (DIR or FILE) used to verify PRAC question answers. |
+| **Checkpoint** | An expected condition on a VFS path (existence, type, content, or permissions) used to verify PRAC question answers. |
+| **SetupItem** | A declarative VFS initialization instruction (create directory, create file, set permissions) applied before a PRAC question begins. |
 | **Segment** | A single command with its arguments and optional redirect info, part of a `ParsedPlan`. |
 | **ParsedPlan** | The structured result of parsing a shell input: a list of Segments connected by operators. |
 | **Environment (.env)** | A text file storing a serialized VFS snapshot and working directory, saved under `data/environments/`. |
-| **Piping** | Connecting the stdout of one command to the stdin of the next using `\|`. |
-| **Redirection** | Directing command output to a file using `>` (overwrite) or `>>` (append). |
+| **Piping** | Connecting the stdout of one command to the stdin of the next using the pipe character (&#124;). |
+| **Redirection** | Directing command output to a file (`>`/`>>`) or reading input from a file (`<`). |
+| **Glob** | A wildcard pattern (`*`, `?`) used to match multiple file names in the VFS. |
+| **Alias** | A user-defined shortcut for a command name, stored in the shell session. |
 | **Question Bank** | A collection of question files (`.txt`) organized by topic under `data/questions/`. |
 | **Mainstream OS** | Windows, Linux, macOS. |
 
@@ -1205,7 +730,7 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
    - Expected: List of available top-level commands (shell, exam, exec, help, exit) is displayed.
 
 3. **Exit**
-   - Input: `exit`
+   - Input: `exit` (or `quit`)
    - Expected: Prints "Goodbye!" and application terminates.
 
 ### Shell Simulator
@@ -1215,83 +740,95 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
    - Expected: Welcome message and shell prompt `user@linuxlingo:/$` are displayed.
 
 2. **Basic navigation**
-   - Input: `pwd`
-   - Expected: `/`
-   - Input: `cd /home/user`
-   - Expected: Prompt changes to `user@linuxlingo:/home/user$`
-   - Input: `cd -`
-   - Expected: Returns to `/`, prints `/`.
-   - Input: `cd ~`
-   - Expected: Navigates to `/home/user`.
+   - `pwd` → `/`
+   - `cd /home/user` → prompt changes to `user@linuxlingo:/home/user$`
+   - `cd -` → returns to `/`, prints `/`
+   - `cd ~` → navigates to `/home/user`
+   - `ls -la` → lists files with permissions, types, and sizes
 
 3. **File and directory operations**
-   - Input: `mkdir testdir`
-   - Expected: No output (success).
-   - Input: `ls`
-   - Expected: `testdir` appears in listing.
-   - Input: `touch testdir/hello.txt`
-   - Expected: No output (success).
-   - Input: `echo "Hello World" > testdir/hello.txt`
-   - Input: `cat testdir/hello.txt`
-   - Expected: `Hello World`
+   - `mkdir testdir` → no output (success)
+   - `mkdir -p a/b/c` → creates nested directories
+   - `ls` → `testdir` appears in listing
+   - `touch testdir/hello.txt` → no output (success)
+   - `echo "Hello World" > testdir/hello.txt` then `cat testdir/hello.txt` → `Hello World`
+   - `cp testdir/hello.txt testdir/copy.txt` → file copied
+   - `mv testdir/copy.txt testdir/moved.txt` → file renamed
+   - `rm -r testdir` → directory and contents removed
 
 4. **Piping**
-   - Input: `echo "line1" | cat`
-   - Expected: `line1`
-   - Input: `echo "apple" | grep apple`
-   - Expected: `apple`
+   - `echo "line1" | cat` → `line1`
+   - `echo "apple" | grep apple` → `apple`
 
-5. **Redirection**
-   - Input: `echo "test output" > /tmp/out.txt`
-   - Input: `cat /tmp/out.txt`
-   - Expected: `test output`
-   - Input: `echo "more output" >> /tmp/out.txt`
-   - Input: `cat /tmp/out.txt`
-   - Expected: `test outputmore output`
+5. **Output redirection**
+   - `echo "test output" > /tmp/out.txt` then `cat /tmp/out.txt` → `test output`
+   - `echo "more" >> /tmp/out.txt` then `cat /tmp/out.txt` → `test output` followed by `more`
 
-6. **Conditional execution**
-   - Input: `echo success && echo "also runs"`
-   - Expected: Both `success` and `also runs` are printed.
-   - Input: `ls /nonexistent && echo "should not run"`
-   - Expected: Error message for `ls`, and `should not run` is NOT printed.
+6. **Input redirection**
+   - `echo "hello" > /tmp/in.txt` then `cat < /tmp/in.txt` → `hello`
+   - `grep hello < /tmp/in.txt` → `hello`
 
-7. **Text processing**
-   - Input: `echo "hello world" > /tmp/test.txt`
-   - Input: `grep hello /tmp/test.txt`
-   - Expected: `hello world`
-   - Input: `wc /tmp/test.txt`
-   - Expected: Line, word, and character counts.
+7. **Conditional execution**
+   - `echo success && echo "also runs"` → both `success` and `also runs` printed
+   - `ls /nonexistent && echo "no"` → error message only, `no` is NOT printed
+   - `ls /nonexistent || echo "fallback"` → error message, then `fallback` printed
+   - `echo a ; echo b` → both `a` and `b` printed on separate lines
 
-8. **Permissions**
-   - Input: `touch /tmp/secret.txt`
-   - Input: `chmod 000 /tmp/secret.txt`
-   - Input: `cat /tmp/secret.txt`
-   - Expected: `Permission denied` error.
+8. **Text processing**
+   - `echo "hello world" > /tmp/test.txt` then `grep hello /tmp/test.txt` → `hello world`
+   - `wc /tmp/test.txt` → line, word, and character counts
+   - `sort` / `uniq` / `head` / `tail` — verify expected output on multi-line input
 
-9. **Exiting the shell**
-   - Input: `exit`
-   - Expected: Returns to `linuxlingo>` prompt.
+9. **Permissions**
+   - `touch /tmp/secret.txt` then `chmod 000 /tmp/secret.txt` then `cat /tmp/secret.txt` → `Permission denied` error
+
+10. **Glob patterns**
+    - `touch a.txt b.txt c.log` then `ls *.txt` → lists `a.txt b.txt` only
+    - `ls ?.txt` → lists `a.txt b.txt` (single-character match)
+
+11. **Shell variables**
+    - `echo $USER` → `user`
+    - `echo $HOME` → `/home/user`
+    - `echo $PWD` → current working directory
+
+12. **Aliases**
+    - `alias ll="ls -la"` then `ll` → same output as `ls -la`
+    - `unalias ll` then `ll` → `ll: command not found`
+
+13. **Command history**
+    - Run a few commands, then `history` → numbered list of previous commands
+    - `!!` → re-runs the last command
+    - `!3` → re-runs command number 3
+
+14. **Info commands**
+    - `man ls` → displays usage info for `ls`
+    - `tree` → displays directory tree from current directory
+
+15. **Diff and tee**
+    - `echo "a" > /tmp/f1.txt` and `echo "b" > /tmp/f2.txt` then `diff /tmp/f1.txt /tmp/f2.txt` → shows differences
+    - `echo "hello" | tee /tmp/tee.txt` → prints `hello` AND writes it to `/tmp/tee.txt`
+
+16. **Command suggestion**
+    - `mkdi` → `Did you mean: mkdir?`
+    - `gre` → `Did you mean: grep?`
+
+17. **Exiting the shell**
+    - `exit` → returns to `linuxlingo>` prompt
 
 ### Environment Management
 
 1. **Save environment**
    - Enter shell, create some files/directories.
-   - Input: `save myenv`
-   - Expected: Environment saved message.
-   - Input: `envlist`
-   - Expected: `myenv` appears in the list.
+   - `save myenv` → environment saved message
+   - `envlist` → `myenv` appears in the list
 
 2. **Load environment**
-   - Input: `reset`
-   - Expected: VFS is reset to default state.
-   - Input: `load myenv`
-   - Expected: Previously created files/directories are restored.
+   - `reset` → VFS reset to default state
+   - `load myenv` → previously created files/directories are restored
 
 3. **Delete environment**
-   - Input: `envdelete myenv`
-   - Expected: Environment deleted message.
-   - Input: `envlist`
-   - Expected: `myenv` no longer appears.
+   - `envdelete myenv` → environment deleted message
+   - `envlist` → `myenv` no longer appears
 
 ### Exam Module
 

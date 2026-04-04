@@ -1,0 +1,27 @@
+@startuml PracQuestionSetupActivity
+start
+:Receive PracQuestion with setupItems;
+
+if (setupItems is empty?) then (yes)
+    :Skip setup\n(default VFS is used);
+else (no)
+    while (for each SetupItem)
+        if (type == MKDIR) then
+            :createDirectory(path)\nwith parents;
+        elseif (type == FILE) then
+            :createFile(path);
+            if (value != null?) then (yes)
+                :writeFile(path, value);
+            endif
+        elseif (type == PERM) then
+            :resolve(path);
+            :setPermission(value);
+        else
+            :Skip unknown SetupType;
+        endif
+    endwhile
+endif
+
+:VFS is ready for\nuser interaction;
+stop
+@enduml
