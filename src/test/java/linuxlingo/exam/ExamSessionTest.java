@@ -233,15 +233,20 @@ public class ExamSessionTest {
     }
 
     @Test
-    public void runOneRandom_withQuestions_doesNotCrash() throws Exception {
+    public void runOneRandom_withQuestions_presentsAndChecksQuestion() throws Exception {
         QuestionBank bank = createBankWithQuestions();
         ExamSession session = createSession("B\n", bank);
         session.runOneRandom();
-        // presentQuestion for non-PRAC returns false without interaction
-        // just ensure it doesn't crash
+
         String output = outStream.toString();
         assertFalse(output.contains("No questions available"),
                 "Should not say 'no questions' when questions exist");
+        assertTrue(output.contains("[Q1/1]"),
+                "Random mode should present a single question with header");
+        assertTrue(output.contains("Explanation:"),
+                "Random mode should show an explanation for the question");
+        assertTrue(output.contains("Correct") || output.contains("Incorrect"),
+                "Random mode should indicate whether the answer was correct or incorrect");
     }
 
     @Test
