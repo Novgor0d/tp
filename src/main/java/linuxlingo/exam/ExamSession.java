@@ -209,20 +209,40 @@ public class ExamSession {
     /**
      * Present a single question in single-random-question mode.
      *
-     * <p>Currently, only PRAC questions perform interactive shell checks here.
-     * For non-PRAC questions this method returns false and is not used by
-     * {@link #runExam(List)}.</p>
+     * <p>This is used by {@link #runOneRandom()} and supports both PRAC and
+     * non-PRAC questions. For PRAC questions it opens a temporary shell via
+     * {@link #handlePracQuestion(PracQuestion)}; for others it performs the
+     * same interaction flow as {@link #presentNonPracQuestion(Question, int, int, ExamResult)}
+     * but without accumulating results into an {@link ExamResult}.</p>
+     *
+     * @return {@code true} if the answer/VFS was correct, {@code false} otherwise
      */
     private boolean presentQuestion(Question q, int index, int total) {
         Objects.requireNonNull(q, "question must not be null");
         if (index <= 0 || total <= 0) {
             throw new IllegalArgumentException("index and total must be positive");
         }
+
+        ui.println("[Q" + index + "/" + total + "] " + q.present());
+
         if (q instanceof PracQuestion pq) {
-            ui.println("[Q" + index + "/" + total + "] " + q.present());
             return handlePracQuestion(pq);
         }
-        return false;
+
+        String userAnswer = ui.readLine("Your answer: ");
+        if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
+            LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
+            return false;
+        }
+
+        boolean correct = q.checkAnswer(userAnswer);
+        if (correct) {
+            ui.println("✓ Correct!");
+        } else {
+            ui.println("✗ Incorrect.");
+        }
+        ui.println("Explanation: " + q.getExplanation());
+        return correct;
     }
 
     /**
