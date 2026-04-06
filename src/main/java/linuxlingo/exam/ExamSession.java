@@ -38,6 +38,8 @@ public class ExamSession {
     private final QuestionBank questionBank;
     private final Ui ui;
     private final Supplier<VirtualFileSystem> vfsFactory;
+    private final QuestionInteraction questionInteraction;
+    private final RandomQuestionMode randomQuestionMode;
 
     /**
      * @param bank       the loaded question bank
@@ -49,6 +51,9 @@ public class ExamSession {
         this.questionBank = Objects.requireNonNull(bank, "questionBank must not be null");
         this.ui = Objects.requireNonNull(ui, "ui must not be null");
         this.vfsFactory = Objects.requireNonNull(vfsFactory, "vfsFactory must not be null");
+        this.questionInteraction = new QuestionInteraction(this.ui);
+        this.randomQuestionMode = new RandomQuestionMode(this.questionBank, this.ui,
+                this.questionInteraction, this::handlePracQuestion);
     }
 
     /**
@@ -140,12 +145,7 @@ public class ExamSession {
      * Single random question mode: present one question from any topic.
      */
     public void runOneRandom() {
-        Question q = questionBank.getRandomQuestion();
-        if (q == null) {
-            ui.println("No questions available.");
-            return;
-        }
-        presentQuestion(q, 1, 1);
+        randomQuestionMode.runOneRandom();
     }
 
     /**
@@ -165,8 +165,6 @@ public class ExamSession {
         }
     }
 
-    // ─── Private helpers ─────────────────────────────────────────
-
     /**
      * Run through a list of questions, accumulate results.
      */
@@ -183,69 +181,12 @@ public class ExamSession {
                 boolean correct = handlePracQuestion(pq);
                 result.addResult(q, "", correct);
             } else {
-                presentNonPracQuestion(q, index, total, result);
+                questionInteraction.presentQuestionWithResult(q, index, total, result);
             }
         }
         return result;
     }
 
-    private void presentNonPracQuestion(Question q, int index, int total, ExamResult result) {
-        ui.println("[Q" + index + "/" + total + "] " + q.present());
-        String userAnswer = ui.readLine("Your answer: ");
-        if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
-            LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
-            result.addResult(q, "", false);
-            return;
-        }
-
-        boolean correct = q.checkAnswer(userAnswer);
-        if (correct) {
-            ui.println("✓ Correct!");
-        } else {
-            ui.println("✗ Incorrect.");
-        }
-        ui.println("Explanation: " + q.getExplanation());
-        result.addResult(q, userAnswer, correct);
-    }
-
-    /**
-     * Present a single question in single-random-question mode.
-     *
-     * <p>This is used by {@link #runOneRandom()} and supports both PRAC and
-     * non-PRAC questions. For PRAC questions it opens a temporary shell via
-     * {@link #handlePracQuestion(PracQuestion)}; for others it performs the
-     * same interaction flow as {@link #presentNonPracQuestion(Question, int, int, ExamResult)}
-     * but without accumulating results into an {@link ExamResult}.</p>
-     *
-     * @return {@code true} if the answer/VFS was correct, {@code false} otherwise
-     */
-    private boolean presentQuestion(Question q, int index, int total) {
-        Objects.requireNonNull(q, "question must not be null");
-        if (index <= 0 || total <= 0) {
-            throw new IllegalArgumentException("index and total must be positive");
-        }
-
-        ui.println("[Q" + index + "/" + total + "] " + q.present());
-
-        if (q instanceof PracQuestion pq) {
-            return handlePracQuestion(pq);
-        }
-
-        String userAnswer = ui.readLine("Your answer: ");
-        if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
-            LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
-            return false;
-        }
-
-        boolean correct = q.checkAnswer(userAnswer);
-        if (correct) {
-            ui.println("✓ Correct!");
-        } else {
-            ui.println("✗ Incorrect.");
-        }
-        ui.println("Explanation: " + q.getExplanation());
-        return correct;
-    }
 
     /**
      * Handle a PRAC question: open a temporary shell, then check VFS.
