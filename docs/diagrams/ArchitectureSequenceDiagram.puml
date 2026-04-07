@@ -16,7 +16,11 @@ UI --> MP : "shell"
 MP -> SS : startInteractive()
 activate SS
 SS -> SS : create ShellLineReader\n(with ShellCompleter)
+activate SS
+deactivate SS
 SS -> SS : start()
+activate SS
+deactivate SS
 SS -> UI : readLine(prompt)
 UI --> SS : user commands...
 SS -> UI : readLine(prompt)

@@ -9,14 +9,18 @@ participant ":Ui" as UI
 loop for each Segment in ParsedPlan
 
   SS -> SS : check preceding operator
+  activate SS
   note right
     AND (&&): skip if last exit code != 0
     OR (||): skip if last exit code == 0
     PIPE: forward previous stdout as stdin
     SEMICOLON: always run
   end note
+  deactivate SS
 
   SS -> SS : resolve alias, expand flags,\nexpand globs, expand variables
+  activate SS
+  deactivate SS
 
   SS -> CR : get(resolvedName)
 
@@ -24,12 +28,14 @@ loop for each Segment in ParsedPlan
     SS -> CMD : execute(session, args, stdin)
     CMD --> SS : CommandResult
 
-    alt segment has output redirect
+    opt segment has output redirect
       SS -> VFS : writeFile(target, stdout, append)
     end
 
   else command not found
     SS -> SS : suggestCommand(name)
+    activate SS
+    deactivate SS
     SS -> UI : println(error + suggestion)
   end
 

@@ -8,6 +8,8 @@ participant ":ExamResult" as ER
 User -> ES : startInteractive()
 ES -> QB : getTopics()
 ES -> ES : listTopics()
+activate ES
+deactivate ES
 ES -> UI : readLine("Select topic: ")
 UI --> ES : topicSelection
 
@@ -23,14 +25,18 @@ loop for each question
         ES -> UI : readLine("Your answer: ")
         UI --> ES : userAnswer
         ES -> ES : question.checkAnswer(userAnswer)
+        activate ES
+        deactivate ES
         ES -> ER : addResult(question, answer, correct)
     else PRAC
         ES -> ES : handlePracQuestion(q)
+        activate ES
         note right
             Creates temp VFS + ShellSession.
             User types commands until "exit".
             q.checkVfs(tempVfs) verifies result.
         end note
+        deactivate ES
         ES -> ER : addResult(question, "", correct)
     end
 end

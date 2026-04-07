@@ -4,9 +4,15 @@ participant Caller
 participant ":ShellParser" as SP
 
 Caller -> SP : parse(input)
+activate SP
 SP -> SP : tokenize(input)
+activate SP
 note right : Char-by-char state machine.\nProduces a flat list of Tokens.
+deactivate SP
 SP -> SP : buildPlan(tokens)
+activate SP
 note right : Groups tokens into Segments\nseparated by operators.
+deactivate SP
 SP --> Caller : ParsedPlan
+deactivate SP
 @enduml

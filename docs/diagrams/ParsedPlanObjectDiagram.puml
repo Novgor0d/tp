@@ -1,0 +1,36 @@
+@startuml ParsedPlanObjectDiagram
+skinparam objectAttributeIconSize 0
+
+title Object diagram for parsing "echo hello | grep h > out.txt"
+
+object ":ParsedPlan" as plan {
+}
+
+object "seg1:Segment" as seg1 {
+    commandName = "echo"
+    args = ["hello"]
+    redirect = null
+    inputRedirect = null
+}
+
+object "seg2:Segment" as seg2 {
+    commandName = "grep"
+    args = ["h"]
+    inputRedirect = null
+}
+
+object ":RedirectInfo" as redir {
+    target = "out.txt"
+    append = false
+}
+
+plan --> seg1 : segments[0]
+plan --> seg2 : segments[1]
+seg2 --> redir : redirect
+
+note right of plan
+  operators = [PIPE]
+  (segments.size() - 1 == operators.size())
+end note
+
+@enduml

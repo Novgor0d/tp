@@ -185,6 +185,10 @@ Key design decisions for VFS:
 - **`deepCopy()`** is provided at every level (VFS, Directory, RegularFile) to enable snapshot-based features (e.g., creating a temp VFS for PRAC exam questions, saving environments).
 - The default VFS tree contains `/home/user`, `/tmp`, and `/etc` (with a `hostname` file).
 
+The following object diagram illustrates a concrete VFS state after the user has created a file `hello.txt` under `/home/user`:
+
+![VFS Object Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/VfsObjectDiagram.puml)
+
 ---
 
 ## Implementation
@@ -218,6 +222,10 @@ stop
 @enduml
 ```
 The `ShellParser.parse()` method runs the input through two stages: **tokenization**, then **plan building**
+
+The following object diagram shows a concrete `ParsedPlan` produced by parsing the input `echo hello | grep h > out.txt`:
+
+![ParsedPlan Object Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ParsedPlanObjectDiagram.puml)
 ```plantuml
 @startuml
 hide footbox

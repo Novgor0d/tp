@@ -1,0 +1,53 @@
+@startuml VfsObjectDiagram
+skinparam objectAttributeIconSize 0
+
+object ":VirtualFileSystem" as vfs {
+    root = rootDir
+}
+
+object "rootDir:Directory" as root {
+    name = "/"
+    permission = "rwxr-xr-x"
+}
+
+object "home:Directory" as home {
+    name = "home"
+    permission = "rwxr-xr-x"
+}
+
+object "user:Directory" as user {
+    name = "user"
+    permission = "rwxr-xr-x"
+}
+
+object "tmp:Directory" as tmp {
+    name = "tmp"
+    permission = "rwxrwxrwx"
+}
+
+object "etc:Directory" as etc {
+    name = "etc"
+    permission = "rwxr-xr-x"
+}
+
+object "hostname:RegularFile" as hostname {
+    name = "hostname"
+    permission = "rw-r--r--"
+    content = "linuxlingo"
+}
+
+object "hello.txt:RegularFile" as hello {
+    name = "hello.txt"
+    permission = "rw-r--r--"
+    content = "Hello World"
+}
+
+vfs --> root : root
+root --> home : children
+root --> tmp : children
+root --> etc : children
+home --> user : children
+etc --> hostname : children
+user --> hello : children
+
+@enduml

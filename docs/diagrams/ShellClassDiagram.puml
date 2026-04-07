@@ -1,7 +1,7 @@
 @startuml ShellClassDiagram
 skinparam classAttributeIconSize 0
 
-interface Command {
+class Command <<interface>> {
     + execute(session, args, stdin) : CommandResult
     + getUsage() : String
     + getDescription() : String
@@ -70,10 +70,14 @@ ParsedPlan *-- Segment
 CommandRegistry --> "*" Command : stores
 Command ..> CommandResult : returns
 
-class CdCommand implements Command
-class LsCommand implements Command
-class GrepCommand implements Command
-class AliasCommand implements Command
+class CdCommand
+class LsCommand
+class GrepCommand
+class AliasCommand
+CdCommand ..|> Command
+LsCommand ..|> Command
+GrepCommand ..|> Command
+AliasCommand ..|> Command
 note "32 more command\nimplementations..." as N1
 N1 .. CdCommand
 @enduml

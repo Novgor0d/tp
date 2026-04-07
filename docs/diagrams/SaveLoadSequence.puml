@@ -20,13 +20,19 @@ Load -> VS : loadFromFile(name)
 VS -> S : readFile(path)
 S --> VS : fileContent : String
 VS -> VS : deserialize(fileContent)
+activate VS
 note right of VS
   Parse header for workingDir.
   For each line: create Directory
   or RegularFile with Permission.
   Unescape content.
 end note
+deactivate VS
 VS --> Load : DeserializedVfs{vfs, workingDir}
 Load -> Load : session.replaceVfs(vfs)
+activate Load
+deactivate Load
 Load -> Load : session.setWorkingDir(workingDir)
+activate Load
+deactivate Load
 @enduml
