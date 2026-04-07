@@ -23,6 +23,14 @@ class QuestionInteraction {
     }
 
     /**
+     * Print the question header and body, then prompt the user for an answer.
+     */
+    private String askQuestion(Question question, int index, int total) {
+        ui.println("[Q" + index + "/" + total + "] " + question.present());
+        return ui.readLine("Your answer: ");
+    }
+
+    /**
      * Present a non-PRAC question as part of an exam run and record the
      * result in the given {@link ExamResult}.
      */
@@ -30,8 +38,7 @@ class QuestionInteraction {
         Objects.requireNonNull(question, "question must not be null");
         Objects.requireNonNull(result, "result must not be null");
 
-        ui.println("[Q" + index + "/" + total + "] " + question.present());
-        String userAnswer = ui.readLine("Your answer: ");
+        String userAnswer = askQuestion(question, index, total);
         if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
             LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
             result.addResult(question, "", false);
@@ -60,9 +67,7 @@ class QuestionInteraction {
             throw new IllegalArgumentException("index and total must be positive");
         }
 
-        ui.println("[Q" + index + "/" + total + "] " + question.present());
-
-        String userAnswer = ui.readLine("Your answer: ");
+        String userAnswer = askQuestion(question, index, total);
         if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
             LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
             return false;
