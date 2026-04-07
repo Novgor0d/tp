@@ -27,11 +27,13 @@ import linuxlingo.shell.vfs.VirtualFileSystem;
  *   <li>Each {@link Checkpoint} is verified: correct path + correct node type.</li>
  * </ol>
  *
- * <h3>v2.0 Enhancements (Owner: D — stub; to be fully implemented)</h3>
+ * <h3>v2.0 Enhancements (implemented)</h3>
  * <ul>
- *   <li>SetupItem inner class for VFS environment initialization</li>
- *   <li>New checkpoint types: NOT_EXISTS, CONTENT_EQUALS, PERM</li>
- *   <li>applySetup() to prepare VFS before user interaction</li>
+ *   <li>{@link SetupItem} inner class for VFS environment initialization.</li>
+ *   <li>Additional checkpoint types handled via {@link Checkpoint}:
+ *       {@code NOT_EXISTS}, {@code CONTENT_EQUALS}, {@code PERM}.</li>
+ *   <li>{@link #applySetup(VirtualFileSystem)} to prepare the VFS before
+ *       user interaction when setup items are provided.</li>
  * </ul>
  */
 public class PracQuestion extends Question {
