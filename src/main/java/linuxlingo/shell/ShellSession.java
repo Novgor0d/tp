@@ -53,6 +53,10 @@ import linuxlingo.shell.vfs.VirtualFileSystem;
 public class ShellSession {
 
     private static final Logger LOGGER = Logger.getLogger(ShellSession.class.getName());
+    private static final java.util.Set<String> KNOWN_LONG_OPTIONS = java.util.Set.of(
+            "name", "type", "size", "exec", "perm", "path",
+            "help", "sort", "file", "count"
+    );
 
     /** exit code: general error (e.g. failed redirect). */
     private static final int EXIT_CODE_GENERAL_ERROR = 1;
@@ -199,6 +203,10 @@ public class ShellSession {
      */
     private void executePlan(String input) {
         CommandResult result = runPlan(input);
+        // Print stderr first, then stdout to match display ordering (#147)
+        if (result != null && !result.getStderr().isEmpty()) {
+            ui.println(result.getStderr());
+        }
         // Print the final stdout produced by the last segment
         if (result != null && !result.getStdout().isEmpty()) {
             ui.println(result.getStdout());
@@ -229,9 +237,11 @@ public class ShellSession {
                 : "ParsedPlan invariant violated: operators=" + plan.operators.size()
                 + " segments=" + plan.segments.size();
 
-        StringBuilder accumulatedStdout = new StringBuilder();
+        
         CommandResult lastResult = CommandResult.success("");
-        String pipedStdin = null;
+        String pipedStdin = null; // stdout carried forward through a pipe
+        StringBuilder accumulatedStdout = new StringBuilder(); // accumulated stdout across segments
+        StringBuilder accumulatedStderr = new StringBuilder(); // accumulated stderr across segments
 
         for (int i = 0; i < plan.segments.size(); i++) {
             ShellParser.Segment segment = plan.segments.get(i);
@@ -261,14 +271,29 @@ public class ShellSession {
             Command command = resolveCommand(segment.commandName);
 
             if (command == null) {
-                lastResult = handleCommandNotFound(segment.commandName);
-                continue;
+                String errorMsg = segment.commandName + ": command not found";
+                LOGGER.log(Level.WARNING, "Command not found: ''{0}''", segment.commandName);
+                String suggestion = suggestCommand(segment.commandName);
+                if (suggestion != null) {
+                    errorMsg += "\n" + suggestion;
+                }
+                if (!accumulatedStderr.isEmpty()) {
+                    accumulatedStderr.append("\n");
+                }
+                accumulatedStderr.append(errorMsg);
+                setLastExitCode(127);
+                lastResult = CommandResult.error(errorMsg);
+                continue; // no piped output from a missing command
             }
 
             CommandResult result = command.execute(this, args, stdin);
 
+            // Defer stderr printing to maintain correct output ordering (#147)
             if (!result.getStderr().isEmpty()) {
-                ui.println(result.getStderr());
+                if (!accumulatedStderr.isEmpty()) {
+                    accumulatedStderr.append("\n");
+                }
+                accumulatedStderr.append(result.getStderr());
             }
 
             result = applyOutputRedirect(segment, result);
@@ -282,10 +307,12 @@ public class ShellSession {
             if (nextIsPipe) {
                 pipedStdin = result.getStdout();
             } else if (!result.getStdout().isEmpty()) {
-                accumulatedStdout.append(result.getStdout());
-                if (i < plan.segments.size() - 1) {
-                    accumulatedStdout.append('\n');
+                // Accumulate intermediate stdout for non-pipe operators
+                // so output is not silently discarded (fix for #136)
+                if (!accumulatedStdout.isEmpty()) {
+                    accumulatedStdout.append("\n");
                 }
+                accumulatedStdout.append(result.getStdout());
             }
 
             setLastExitCode(result.getExitCode());
@@ -698,12 +725,13 @@ public class ShellSession {
     public String[] expandCombinedFlags(String[] args) {
         List<String> expanded = new ArrayList<>();
         for (String arg : args) {
-            // Only expand if it starts with '-', has 3-4 chars (2-3 combined flags),
-            // doesn't start with '--', and all chars after '-' are letters.
-            // Longer args like -name, -type, -size are treated as single options.
+            // Expand if it starts with '-', has 3-6 chars (2-5 combined flags),
+            // doesn't start with '--', all chars after '-' are letters, and
+            // the flag text isn't a known multi-char option word (#145).
             if (arg.startsWith("-") && !arg.startsWith("--")
-                    && arg.length() > 2 && arg.length() <= 4
-                    && allLetters(arg.substring(1))) {
+                    && arg.length() > 2 && arg.length() <= 6
+                    && allLetters(arg.substring(1))
+                    && !isKnownLongOption(arg.substring(1))) {
                 for (int i = 1; i < arg.length(); i++) {
                     expanded.add("-" + arg.charAt(i));
                 }
@@ -724,6 +752,15 @@ public class ShellSession {
             }
         }
         return true;
+    }
+
+    /**
+     * Checks if the flag text (without leading '-') is a known multi-character
+     * option name that should NOT be expanded into separate single-char flags.
+     * Examples: "name", "type", "size", "exec", "random".
+     */
+    private boolean isKnownLongOption(String flagText) {
+        return KNOWN_LONG_OPTIONS.contains(flagText.toLowerCase());
     }
 
     /**

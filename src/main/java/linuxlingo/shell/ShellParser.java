@@ -280,10 +280,10 @@ public class ShellParser {
      * @param singleQuoted whether the token was single-quoted
      */
     private void flushCurrentToken(StringBuilder current, List<Token> tokens,
-            boolean singleQuoted) throws IllegalArgumentException {
+            boolean singleQuoted, boolean wasQuoted) throws IllegalArgumentException {
         assert current != null : "current StringBuilder must not be null";
         assert tokens != null : "tokens list must not be null";
-        if (!current.isEmpty()) {
+        if (!current.isEmpty() || wasQuoted) {
             String value = singleQuoted ? "\0" + current.toString() : current.toString();
             tokens.add(new Token(value, TokenType.WORD));
             current.setLength(0);
@@ -291,7 +291,7 @@ public class ShellParser {
     }
 
     private void flushCurrentToken(StringBuilder current, List<Token> tokens) throws IllegalArgumentException {
-        flushCurrentToken(current, tokens, false);
+        flushCurrentToken(current, tokens, false, false);
     }
 
     /**
@@ -311,6 +311,7 @@ public class ShellParser {
         State state = State.NORMAL;
         StringBuilder current = new StringBuilder();
         boolean hasSingleQuote = false;
+        boolean wasQuoted = false; // track if current token had any quotes (#144)
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
@@ -319,8 +320,9 @@ public class ShellParser {
             case NORMAL:
                 switch(c) {
                 case ' ', '\t':
-                    flushCurrentToken(current, tokens, hasSingleQuote);
+                    flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                     hasSingleQuote = false;
+                    wasQuoted = false;
                     break;
                 case '\\':
                     // Backslash escaping outside quotes
@@ -332,8 +334,9 @@ public class ShellParser {
                     }
                     break;
                 case '|':
-                    flushCurrentToken(current, tokens, hasSingleQuote);
+                    flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                     hasSingleQuote = false;
+                    wasQuoted = false;
                     if (i + 1 < input.length() && input.charAt(i + 1) == '|') {
                         tokens.add(new Token("||", TokenType.OR));
                         i++; // skip second '|'
@@ -342,19 +345,22 @@ public class ShellParser {
                     }
                     break;
                 case '<':
-                    flushCurrentToken(current, tokens, hasSingleQuote);
+                    flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                     hasSingleQuote = false;
+                    wasQuoted = false;
                     tokens.add(new Token("<", TokenType.INPUT_REDIRECT));
                     break;
                 case ';':
-                    flushCurrentToken(current, tokens, hasSingleQuote);
+                    flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                     hasSingleQuote = false;
+                    wasQuoted = false;
                     tokens.add(new Token(";", TokenType.SEMICOLON));
                     break;
                 case '&':
                     if (i + 1 < input.length() && input.charAt(i + 1) == '&') {
-                        flushCurrentToken(current, tokens, hasSingleQuote);
+                        flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                         hasSingleQuote = false;
+                        wasQuoted = false;
                         tokens.add(new Token("&&", TokenType.AND));
                         i++; // to skip the second '&'
                     } else {
@@ -362,8 +368,9 @@ public class ShellParser {
                     }
                     break;
                 case '>':
-                    flushCurrentToken(current, tokens, hasSingleQuote);
+                    flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
                     hasSingleQuote = false;
+                    wasQuoted = false;
                     if (i + 1 < input.length() && input.charAt(i + 1) == '>') {
                         tokens.add(new Token(">>", TokenType.APPEND));
                         i++; // to skip the second '>'
@@ -374,9 +381,11 @@ public class ShellParser {
                 case '\'':
                     state = State.IN_SINGLE_QUOTE;
                     hasSingleQuote = true;
+                    wasQuoted = true;
                     break;// do not add quote to current
                 case '"':
                     state = State.IN_DOUBLE_QUOTE;
+                    wasQuoted = true;
                     break;// do not add quote to current
                 default:
                     current.append(c);
@@ -403,7 +412,7 @@ public class ShellParser {
         }
 
         // Flushing any remaining token
-        flushCurrentToken(current, tokens, hasSingleQuote);
+        flushCurrentToken(current, tokens, hasSingleQuote, wasQuoted);
         return tokens;
     }
 

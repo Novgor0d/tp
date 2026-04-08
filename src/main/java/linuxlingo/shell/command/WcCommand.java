@@ -12,8 +12,7 @@ import linuxlingo.shell.vfs.VfsException;
  * Syntax: wc [-l] [-w] [-c] &lt;file&gt;
  *
  * <p><b>v1.0</b>: Single file support with -l, -w, -c flags.</p>
- * <p><b>v2.0 [TODO]</b>: Support multiple files with a "total" summary line;
- * refactor via handleMultipleFiles() and formatWcLine().</p>
+ * <p><b>v2.0</b>: Supports multiple files with a {@code total} summary line.</p>
  *
  * <p><b>Owner: C</b></p>
  */
@@ -93,7 +92,7 @@ public class WcCommand implements Command {
         for (String file : files) {
             try {
                 String content = session.getVfs().readFile(file, session.getWorkingDir());
-                int lines = content.isEmpty() ? 0 : content.split("\n", -1).length;
+                int lines = countNewlines(content);
                 int words = content.isBlank() ? 0 : content.trim().split("\\s+").length;
                 int chars = content.length();
                 allCounts.add(new int[]{lines, words, chars});
@@ -182,7 +181,7 @@ public class WcCommand implements Command {
      */
     private String formatWcLine(String content, String fileName,
                                 boolean countLines, boolean countWords, boolean countChars) {
-        int lines = content.isEmpty() ? 0 : content.split("\n", -1).length;
+        int lines = countNewlines(content);
         int words = content.isBlank() ? 0 : content.trim().split("\\s+").length;
         int chars = content.length();
 
@@ -203,9 +202,23 @@ public class WcCommand implements Command {
                 countLines, countWords, countChars, width);
     }
 
+    /**
+     * Counts the number of newline characters in the content.
+     * This matches the POSIX wc -l behaviour (counting \n characters).
+     */
+    private int countNewlines(String content) {
+        int count = 0;
+        for (int i = 0; i < content.length(); i++) {
+            if (content.charAt(i) == '\n') {
+                count++;
+            }
+        }
+        return count;
+    }
+
     @Override
     public String getUsage() {
-        return "wc [-l] [-w] [-c] <file>";
+        return "wc [-l] [-w] [-c] [file ...]";
     }
 
     @Override
