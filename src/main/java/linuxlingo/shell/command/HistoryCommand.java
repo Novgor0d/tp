@@ -74,14 +74,14 @@ public class HistoryCommand implements Command {
             return CommandResult.success("");
         }
 
-        StringBuilder sbuild = new StringBuilder();
+        StringBuilder output = new StringBuilder();
         for (int i = fromIndex; i < history.size(); i++) {
-            if (sbuild.length() > 0) {
-                sbuild.append('\n');
+            if (output.length() > 0) {
+                output.append('\n');
             }
-            sbuild.append(String.format("%5d %s", i + 1, history.get(i)));
+            output.append(String.format("%5d %s", i + 1, history.get(i)));
         }
-        return CommandResult.success(sbuild.toString());
+        return CommandResult.success(output.toString());
     }
     @Override
     public String getUsage() {
