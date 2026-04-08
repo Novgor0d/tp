@@ -54,6 +54,15 @@ public class ShellSession {
 
     private static final Logger LOGGER = Logger.getLogger(ShellSession.class.getName());
 
+    /** exit code: command not found. */
+    private static final int EXIT_CODE_COMMAND_NOT_FOUND = 127;
+
+    /** exit code: shell syntax or usage error. */
+    private static final int EXIT_CODE_SYNTAX_ERROR = 2;
+
+    /** exit code: general error (e.g. failed redirect). */
+    private static final int EXIT_CODE_GENERAL_ERROR = 1;
+
     private VirtualFileSystem vfs;
     private String workingDir;
     private String previousDir;
@@ -312,7 +321,7 @@ public class ShellSession {
         } catch (IllegalArgumentException e) {
             String errorMsg = e.getMessage();
             ui.println(errorMsg);
-            setLastExitCode(2);
+            setLastExitCode(EXIT_CODE_SYNTAX_ERROR);
             return null;
         }
     }
@@ -369,7 +378,7 @@ public class ShellSession {
             String errorMsg = e.getMessage();
             ui.println(errorMsg);
             LOGGER.warning("Input redirect failed: " + errorMsg);
-            setLastExitCode(1);
+            setLastExitCode(EXIT_CODE_GENERAL_ERROR);
             return null;
         }
     }
@@ -412,7 +421,7 @@ public class ShellSession {
             errorMsg += "\n" + suggestion;
         }
         ui.println(errorMsg);
-        setLastExitCode(127);
+        setLastExitCode(EXIT_CODE_COMMAND_NOT_FOUND);
         return CommandResult.error(errorMsg);
     }
 
@@ -441,7 +450,7 @@ public class ShellSession {
             String errorMsg = e.getMessage();
             ui.println(errorMsg);
             LOGGER.warning("Output redirect failed: " + errorMsg);
-            setLastExitCode(1);
+            setLastExitCode(EXIT_CODE_GENERAL_ERROR);
             return null;
         }
     }
