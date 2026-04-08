@@ -20,6 +20,9 @@ public class HistoryCommand implements Command {
 
     private static final Logger LOGGER = Logger.getLogger(HistoryCommand.class.getName());
 
+    private static final int COLUMN_WIDTH = 5;
+    private static final String SEPARATOR = " ";
+
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
         List<String> history = session.getCommandHistory();
@@ -84,7 +87,8 @@ public class HistoryCommand implements Command {
             if (!output.isEmpty()) {
                 output.append('\n');
             }
-            output.append(String.format("%5d  %s", i + 1, history.get(i)));
+
+            output.append(String.format("%" + COLUMN_WIDTH + "d%s%s", i + 1, SEPARATOR, history.get(i)));
         }
         return CommandResult.success(output.toString());
     }
