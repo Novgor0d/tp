@@ -1,27 +1,29 @@
 package linuxlingo.shell.command;
 
 import java.util.Map;
+import java.util.logging.Logger;
 import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
 
+
 /**
- * Removes shell aliases.
- * Syntax: unalias &lt;name&gt; [-a]
+ * Removes one or more shell aliases.
  *
- * <p><b>Owner: A — stub; to be implemented.</b></p>
+ * <p>Usage:</p>
+ * <ul>
+ *   <li>{@code unalias name [name ...]} — removes the named alias(es).</li>
+ *   <li>{@code unalias -a}              — removes all defined aliases.</li>
+ * </ul>
  *
- * TODO: Member A should implement:
- * - Remove a named alias
- * - -a flag to clear all aliases
- * - Error for non-existent aliases
+ * <p>Returns an error for each alias name that does not exist.
+ * All valid names in the same invocation are still removed.</p>
  */
 public class UnaliasCommand implements Command {
 
+    private static final Logger LOGGER = Logger.getLogger(UnaliasCommand.class.getName());
+
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
-        // [v2.0 STUB] TODO: Implement unalias command.
-        // Remove a named alias, or use -a to clear all aliases.
-        // Return error for missing args or non-existent aliases.
         if (args.length == 0) {
             return CommandResult.error("unalias: usage: unalias name [name ...]");
         }
@@ -31,24 +33,38 @@ public class UnaliasCommand implements Command {
         // -a flag clears all aliases
         if (args[0].equals("-a")) {
             aliases.clear();
+            LOGGER.fine("All aliases cleared");
             return CommandResult.success("");
         }
 
+        return removeNamedAliases(aliases, args);
+    }
 
+    /**
+     * Removes each named alias from the map.
+     * Collects errors for names that were not found, but still removes all valid names.
+     *
+     * @param aliases the live alias map from the session
+     * @param names   the alias names to remove
+     * @return success if all names were found; otherwise an error listing missing names
+     */
+    private CommandResult removeNamedAliases(Map<String, String> aliases, String[] names) {
         StringBuilder errors = new StringBuilder();
 
-        for (String name : args) {
-            if (!aliases.containsKey(name)) {
-                if (errors.length() > 0) {
+        for (String name: names) {
+            if (aliases.remove(name) == null) {
+                // Map.remove returns null when the key is absent
+                if (!errors.isEmpty()) {
                     errors.append('\n');
                 }
                 errors.append("unalias: ").append(name).append(": not found");
+                LOGGER.fine(() -> "unalias: alias not found: " + name);
             } else {
-                aliases.remove(name);
+                LOGGER.fine(() -> "Alias removed: " + name);
             }
         }
 
-        return errors.length() > 0 ? CommandResult.error(errors.toString()) : CommandResult.success("");
+        return !errors.isEmpty() ? CommandResult.error(errors.toString()) : CommandResult.success("");
     }
 
     @Override

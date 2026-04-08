@@ -7,8 +7,6 @@ import linuxlingo.shell.ShellSession;
 
 /**
  * Creates or displays shell aliases.
- * Syntax: alias [name=value]
- *
  *
  * <p>Usage:</p>
  * <ul>
