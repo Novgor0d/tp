@@ -131,9 +131,6 @@ public class ShellParser {
      * Represents a single command segment with its arguments and optional redirections.
      */
     public static class Segment {
-        /**
-         * Represents a single command segment with its arguments and optional redirections.
-         */
         public final String commandName;
         /** The arguments passed to the command */
         public final String[] args;
