@@ -20,7 +20,7 @@ public class HistoryCommand implements Command {
 
     private static final Logger LOGGER = Logger.getLogger(HistoryCommand.class.getName());
 
-    private static final String HISTORY_FORMAT = "%d  %s";
+    private static final String HISTORY_FORMAT = "%5d  %s";
 
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
