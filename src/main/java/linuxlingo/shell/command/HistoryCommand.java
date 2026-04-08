@@ -1,6 +1,8 @@
 package linuxlingo.shell.command;
 
 import java.util.List;
+import java.util.logging.Logger;
+
 import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
 
@@ -16,14 +18,10 @@ import linuxlingo.shell.ShellSession;
  */
 public class HistoryCommand implements Command {
 
+    private static final Logger LOGGER = Logger.getLogger(HistoryCommand.class.getName());
+
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
-        // [v2.0 STUB] TODO: Implement history command.
-        // No args: list numbered history entries.
-        // -c flag: clear history.
-        // Numeric arg N: show last N commands.
-        // Fall back to session.getCommandHistory() if no ShellLineReader.
-
         List<String> history = session.getCommandHistory();
 
         if (args.length > 0 && args[0].equals("-c")) {
@@ -70,6 +68,9 @@ public class HistoryCommand implements Command {
      * @return a {@link CommandResult} containing the formatted output
      */
     private CommandResult formatHistory(List<String> history, int fromIndex) {
+        assert fromIndex >= 0 : "fromIndex must be non-negative, got: " + fromIndex;
+        assert fromIndex <= history.size() : "fromIndex exceeds history size";
+
         if (history.isEmpty()) {
             return CommandResult.success("");
         }
