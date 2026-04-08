@@ -454,7 +454,16 @@ public class ShellSession {
         return workingDir;
     }
 
+    /**
+     * Sets the shell's current working directory.
+     *
+     * @param path the new working directory path; must not be null or blank
+     * @throws IllegalArgumentException if {@code path} is null or blank
+     */
     public void setWorkingDir(String path) {
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("setWorkingDir: path must not be null or blank");
+        }
         this.workingDir = path;
     }
 
@@ -462,7 +471,13 @@ public class ShellSession {
         return previousDir;
     }
 
+    /**
+     * Sets the shell's previous working directory (used by {@code cd -}).
+     *
+     * @param dir the previous directory path, or {@code null} to clear it
+     */
     public void setPreviousDir(String dir) {
+        // null argument is still valid here because it would mean no previous directory was there
         this.previousDir = dir;
     }
 
