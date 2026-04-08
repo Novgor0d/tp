@@ -1,6 +1,7 @@
 package linuxlingo.shell.command;
 
 import java.util.Map;
+import java.util.logging.Logger;
 import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
 
@@ -18,13 +19,17 @@ import linuxlingo.shell.ShellSession;
  */
 public class AliasCommand implements Command {
 
+    private static final Logger LOGGER = Logger.getLogger(AliasCommand.class.getName());
+
+    private static final String ALIAS_FORMAT = "alias %s='%s'";
+
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
         if (args.length == 0) {
             return listAliases(session);
         }
 
-        // name without = : show that specific alias
+        // if name is provided without '=' then show that specific alias
         if (!args[0].contains("=")) {
             return showAlias(session, args[0]);
         }
@@ -49,7 +54,7 @@ public class AliasCommand implements Command {
             if (!output.isEmpty()) {
                 output.append('\n');
             }
-            output.append("alias ").append(entry.getKey()).append("='").append(entry.getValue()).append("'");
+            output.append(String.format(ALIAS_FORMAT, entry.getKey(), entry.getValue()));
         }
         return CommandResult.success(output.toString());
     }
@@ -64,25 +69,38 @@ public class AliasCommand implements Command {
      */
     private CommandResult setAlias(ShellSession session, String definition) {
         int eqIndex = definition.indexOf('=');
+
+        // eqIndex == 0 means the name portion is empty (e.g. "=value")
         if (eqIndex <= 0) {
             return CommandResult.error("alias: invalid format: '" + definition + "' (expected name=value)");
         }
 
         String name = definition.substring(0, eqIndex);
-        String value = definition.substring(eqIndex + 1);
-        value = stripSurroundingQuotes(value);
+        String value = stripSurroundingQuotes(definition.substring(eqIndex + 1));
 
         if (name.isBlank()) {
             return CommandResult.error("alias: name must not be blank");
         }
 
         session.getAliases().put(name, value);
+        LOGGER.fine(() -> "Alias set: " + name + " -> " + value);
         return CommandResult.success("");
     }
 
+    /**
+     * Strips a matching pair of surrounding single or double quotes from {@code s}.
+     * If {@code s} is not surrounded by matching quotes, it is returned unchanged.
+     *
+     * @param s the string to strip
+     * @return the unquoted string
+     */
     private String stripSurroundingQuotes(String s) {
-        if (s.length() >= 2 && s.charAt(0) == '\'' && s.charAt(s.length() - 1) == '\'') {
-            return s.substring(1, s.length() - 1);
+        if (s.length() >= 2) {
+            char first = s.charAt(0);
+            char last = s.charAt((s.length() - 1));
+            if ((first == '\'' && last == '\'') || (first == '"' && last == '"')) {
+                return s.substring(1, s.length() - 1);
+            }
         }
         return s;
     }
@@ -99,7 +117,7 @@ public class AliasCommand implements Command {
         if (value == null) {
             return CommandResult.error("alias: " + name + ": not found");
         }
-        return CommandResult.success("alias " + name + "='" + value + "'");
+        return CommandResult.success(String.format(ALIAS_FORMAT, name, value));
     }
 
     @Override
