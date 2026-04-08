@@ -69,6 +69,8 @@ public class AliasCommand implements Command {
         int eqIndex = definition.indexOf('=');
 
         // eqIndex == 0 means the name portion is empty (e.g. "=value")
+        // eqIndex < 0 means no '=' present at all, but setAlias() is only
+        // called when args[0].contains("="), so < 0 is defensive only
         if (eqIndex <= 0) {
             return CommandResult.error("alias: invalid format: '" + definition + "' (expected name=value)");
         }

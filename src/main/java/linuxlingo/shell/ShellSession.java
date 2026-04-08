@@ -206,53 +206,25 @@ public class ShellSession {
     }
 
     /**
-     * Core plan execution engine shared by both {@link #executePlan} and
-     * {@link #executePlanSilent}.
-     *
-     * <h4>v1.0 Operator semantics (implemented):</h4>
-     * <ul>
-     *   <li>{@code PIPE}      — stdout of segment N becomes stdin of segment N+1</li>
-     *   <li>{@code AND}       — segment N+1 is skipped if lastExitCode != 0</li>
-     *   <li>{@code SEMICOLON} — segment N+1 always runs regardless of exit code</li>
-     * </ul>
-     *
-     * <ul>
-     *   <li>{@code OR}        — segment N+1 is skipped if lastExitCode == 0</li>
-     *   <li>Alias resolution: check aliases map before registry lookup</li>
-     *   <li>Input redirect: read file content as stdin when segment.inputRedirect is set</li>
-     *   <li>Glob expansion: expand wildcards in args before command execution</li>
-     *   <li>"Did you mean?": suggest similar command on command-not-found</li>
-     * </ul>
+     * Core plan execution engine shared by {@link #executePlan} and {@link #executePlanSilent}.
      *
      * @param input raw command string
-     * @return the {@link CommandResult} of the final executed segment, or a
-     *         zero-exit success result if the input was blank / produced no segments
+     * @return the {@link CommandResult} of the final executed segment, or an empty
+     *         success result if the input produced no segments
      */
     private CommandResult runPlan(String input) {
-        ShellParser.ParsedPlan plan;
-        try {
-            plan = new ShellParser().parse(input);
-        } catch (IllegalArgumentException e) {
-            String errorMsg = e.getMessage();
-            ui.println(errorMsg);
-            setLastExitCode(2);
-            return CommandResult.error(errorMsg);
+        ShellParser.ParsedPlan plan = parseInput(input);
+        if (plan == null || plan.segments.isEmpty()) {
+            return CommandResult.success("");
         }
 
-        // Checking whether structure is invariant from the parser
         assert plan.operators.size() == Math.max(0, plan.segments.size() - 1)
                 : "ParsedPlan invariant violated: operators=" + plan.operators.size()
                 + " segments=" + plan.segments.size();
 
-        // When nothing to execute
-        if (plan.segments.isEmpty()) {
-            LOGGER.fine("runPlan: no segments to execute");
-            return CommandResult.success("");
-        }
-
+        StringBuilder accumulatedStdout = new StringBuilder();
         CommandResult lastResult = CommandResult.success("");
-        String pipedStdin = null; // stdout carried forward through a pipe
-        StringBuilder accumulatedStdout = new StringBuilder(); // accumulated stdout across segments
+        String pipedStdin = null;
 
         for (int i = 0; i < plan.segments.size(); i++) {
             ShellParser.Segment segment = plan.segments.get(i);
@@ -261,110 +233,54 @@ public class ShellSession {
             assert segment.commandName != null && !segment.commandName.isBlank()
                     : "Segment at index " + i + " has blank commandName";
 
-            // ── v1.0: Check the operator that precedes this segment ──
-            // operators.get(i-1) sits between segment[i-1] and segment[i]
-            if (i > 0) {
-                ShellParser.TokenType precedingOp = plan.operators.get(i - 1);
-
-                if (precedingOp == ShellParser.TokenType.AND && lastExitCode != 0) {
-                    // the last command failed so skipping the next command
-                    // && requires the previous command to have succeeded
-                    continue;
-                }
-
-                if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
-                    continue;
-                }
-
-                if (precedingOp != ShellParser.TokenType.PIPE) {
-                    // SEMICOLON or AND (that passed): clear any leftover piped stdin
-                    pipedStdin = null;
-                }
-                // PIPE: pipedStdin was already set at the end of the previous iteration
+            if (shouldSkipSegment(plan, i)) {
+                continue;
             }
 
-            // pipedStdin is non-null only when the preceding operator was PIPE
-            String stdin = pipedStdin;
+            if (precedingOperatorIsNotPipe(plan, i)) {
+                pipedStdin = null;
+            }
+
+            String stdin = resolveStdin(segment, pipedStdin);
+            if (stdin == null && segment.inputRedirect != null) {
+                // resolveStdin failed — error already printed, skip this segment
+                pipedStdin = null;
+                lastResult = CommandResult.error("redirect failed");
+                continue;
+            }
             pipedStdin = null;
 
-            if (segment.inputRedirect != null && !segment.inputRedirect.isEmpty()) {
-                try {
-                    stdin = vfs.readFile(segment.inputRedirect, workingDir);
-                } catch (linuxlingo.shell.vfs.VfsException e) {
-                    String errorMsg = e.getMessage();
-                    ui.println(errorMsg);
-                    setLastExitCode(1);
-                    lastResult = CommandResult.error(errorMsg);
-                    continue;
-                }
-            }
+            String[] args = prepareArgs(segment);
+            Command command = resolveCommand(segment.commandName);
 
-            String resolvedName = resolveAlias(segment.commandName);
-
-            String[] expandedArgs = expandCombinedFlags(segment.args);
-            expandedArgs = expandGlobs(expandedArgs);
-            expandedArgs = expandVariables(expandedArgs);
-
-            // v1.0: Look up command in registry (now uses resolved name)
-            Command command = registry.get(resolvedName);
             if (command == null) {
-                String errorMsg = segment.commandName + ": command not found";
-                LOGGER.log(Level.WARNING, "Command not found: ''{0}''", segment.commandName);
-                String suggestion = suggestCommand(segment.commandName);
-                if (suggestion != null) {
-                    errorMsg += "\n" + suggestion;
-                }
-                ui.println(errorMsg);
-                setLastExitCode(127);
-                lastResult = CommandResult.error(errorMsg);
-                continue; // no piped output from a missing command
+                lastResult = handleCommandNotFound(segment.commandName);
+                continue;
             }
 
-            // ── v1.0: Execute the command ──
-            CommandResult result = command.execute(this, expandedArgs, stdin);
+            CommandResult result = command.execute(this, args, stdin);
 
-            // Print stderr immediately (user is not redirected)
             if (!result.getStderr().isEmpty()) {
                 ui.println(result.getStderr());
             }
 
-            // Handle output redirect (> or >>)
-            if (segment.redirect != null) {
-                try {
-                    // Flush stdout to the target file; suppress it from terminal / pipe
-                    vfs.writeFile(
-                            segment.redirect.target,
-                            workingDir,
-                            result.getStdout(),
-                            segment.redirect.isAppend()
-                    );
-                    // stdout consumed by redirect, replaced with an empty success so
-                    // nothing gets printed or forwarded downstream
-                    result = CommandResult.success("");
-                } catch (linuxlingo.shell.vfs.VfsException e) {
-                    String errorMsg = e.getMessage();
-                    ui.println(errorMsg);
-                    setLastExitCode(1);
-                    lastResult = CommandResult.error(errorMsg);
-                    continue;
-                }
+            result = applyOutputRedirect(segment, result);
+            if (result == null) {
+                lastResult = CommandResult.error("redirect write failed");
+                continue;
             }
 
-            // Carry stdout forward if the next operator is PIPE
             boolean nextIsPipe = (i < plan.operators.size())
                     && plan.operators.get(i) == ShellParser.TokenType.PIPE;
             if (nextIsPipe) {
                 pipedStdin = result.getStdout();
             } else if (!result.getStdout().isEmpty()) {
-                // Accumulate intermediate stdout for non-pipe operators
-                // so output is not silently discarded (fix for #136)
                 accumulatedStdout.append(result.getStdout());
                 if (i < plan.segments.size() - 1) {
-                    accumulatedStdout.append("\n");
+                    accumulatedStdout.append('\n');
                 }
             }
 
-            // Update session state
             setLastExitCode(result.getExitCode());
             lastResult = result;
 
@@ -374,12 +290,158 @@ public class ShellSession {
             }
         }
 
-        // Return accumulated stdout from all segments (fix for #136)
         String allStdout = accumulatedStdout.toString();
-        if (!allStdout.isEmpty()) {
-            return CommandResult.success(allStdout);
+        return allStdout.isEmpty() ? lastResult : CommandResult.success(allStdout);
+    }
+
+    /**
+     * Parses the raw input string. Prints and records any syntax error, then returns null.
+     *
+     * @param input raw command string
+     * @return the parsed plan, or {@code null} if parsing failed
+     */
+    private ShellParser.ParsedPlan parseInput(String input) {
+        try {
+            ShellParser.ParsedPlan plan = new ShellParser().parse(input);
+            if (plan.segments.isEmpty()) {
+                LOGGER.fine("runPlan: no segments to execute");
+            }
+            return plan;
+        } catch (IllegalArgumentException e) {
+            String errorMsg = e.getMessage();
+            ui.println(errorMsg);
+            setLastExitCode(2);
+            return null;
         }
-        return lastResult;
+    }
+
+    /**
+     * Returns true if the segment at {@code index} should be skipped
+     * based on the preceding operator and the last exit code.
+     *
+     * @param plan  the parsed plan
+     * @param index the segment index to evaluate
+     * @return {@code true} if the segment should not execute
+     */
+    private boolean shouldSkipSegment(ShellParser.ParsedPlan plan, int index) {
+        if (index == 0) {
+            return false;
+        }
+        ShellParser.TokenType op = plan.operators.get(index - 1);
+        if (op == ShellParser.TokenType.AND && lastExitCode != 0) {
+            return true;
+        }
+        if (op == ShellParser.TokenType.OR && lastExitCode == 0) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the operator preceding segment {@code index} is not a PIPE,
+     * meaning any carried stdin should be cleared.
+     */
+    private boolean precedingOperatorIsNotPipe(ShellParser.ParsedPlan plan, int index) {
+        if (index == 0) {
+            return false;
+        }
+        return plan.operators.get(index - 1) != ShellParser.TokenType.PIPE;
+    }
+
+    /**
+     * Resolves the effective stdin for a segment.
+     * Input redirect ({@code <}) takes precedence over a piped stdin.
+     * Returns {@code null} (with error already printed) if the redirect file cannot be read.
+     *
+     * @param segment    the current segment
+     * @param pipedStdin stdin carried from an upstream pipe, may be null
+     * @return the resolved stdin string, or {@code null} on redirect failure
+     */
+    private String resolveStdin(ShellParser.Segment segment, String pipedStdin) {
+        if (segment.inputRedirect == null || segment.inputRedirect.isEmpty()) {
+            return pipedStdin;
+        }
+        try {
+            return vfs.readFile(segment.inputRedirect, workingDir);
+        } catch (linuxlingo.shell.vfs.VfsException e) {
+            String errorMsg = e.getMessage();
+            ui.println(errorMsg);
+            LOGGER.warning("Input redirect failed: " + errorMsg);
+            setLastExitCode(1);
+            return null;
+        }
+    }
+
+    /**
+     * Expands combined flags, globs, and variables in the segment's arguments.
+     *
+     * @param segment the current segment
+     * @return fully expanded argument array
+     */
+    private String[] prepareArgs(ShellParser.Segment segment) {
+        String[] args = expandCombinedFlags(segment.args);
+        args = expandGlobs(args);
+        return expandVariables(args);
+    }
+
+    /**
+     * Resolves a command name (after alias expansion) to a {@link Command} instance.
+     *
+     * @param rawName the command name as typed
+     * @return the resolved {@link Command}, or {@code null} if not found
+     */
+    private Command resolveCommand(String rawName) {
+        String resolvedName = resolveAlias(rawName);
+        return registry.get(resolvedName);
+    }
+
+    /**
+     * Handles the command-not-found case: prints an error (with a "Did you mean?" hint
+     * if available), sets exit code 127, and returns an error result.
+     *
+     * @param commandName the unrecognised command name
+     * @return an error {@link CommandResult}
+     */
+    private CommandResult handleCommandNotFound(String commandName) {
+        String errorMsg = commandName + ": command not found";
+        LOGGER.log(Level.WARNING, "Command not found: ''{0}''", commandName);
+        String suggestion = suggestCommand(commandName);
+        if (suggestion != null) {
+            errorMsg += "\n" + suggestion;
+        }
+        ui.println(errorMsg);
+        setLastExitCode(127);
+        return CommandResult.error(errorMsg);
+    }
+
+    /**
+     * Applies an output redirect ({@code >} or {@code >>}) if present.
+     * Returns an empty-stdout success result on success so nothing is printed to
+     * the terminal, or {@code null} if the write fails (error already printed).
+     *
+     * @param segment the current segment
+     * @param result  the result produced by the command
+     * @return the (possibly replaced) result, or {@code null} on write failure
+     */
+    private CommandResult applyOutputRedirect(ShellParser.Segment segment, CommandResult result) {
+        if (segment.redirect == null) {
+            return result;
+        }
+        try {
+            vfs.writeFile(
+                    segment.redirect.target,
+                    workingDir,
+                    result.getStdout(),
+                    segment.redirect.isAppend()
+            );
+            return CommandResult.success("");
+        } catch (linuxlingo.shell.vfs.VfsException e) {
+            String errorMsg = e.getMessage();
+            ui.println(errorMsg);
+            LOGGER.warning("Output redirect failed: " + errorMsg);
+            setLastExitCode(1);
+            return null;
+        }
     }
 
     public VirtualFileSystem getVfs() {
