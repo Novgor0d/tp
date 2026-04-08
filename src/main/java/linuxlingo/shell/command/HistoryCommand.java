@@ -24,16 +24,17 @@ public class HistoryCommand implements Command {
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
         List<String> history = session.getCommandHistory();
 
-        if (args.length > 0 && args[0].equals("-c")) {
+        if (args.length == 0) {
+            return formatHistory(history, 0);
+        }
+
+        if (args[0].equals("-c")) {
             history.clear();
+            LOGGER.fine("Command history cleared");
             return CommandResult.success("");
         }
 
-        if (args.length > 0) {
-            return showLastN(history, args[0]);
-        }
-
-        return formatHistory(history, 0);
+        return showLastN(history, args[0]);
     }
 
     /**
@@ -77,7 +78,7 @@ public class HistoryCommand implements Command {
 
         StringBuilder output = new StringBuilder();
         for (int i = fromIndex; i < history.size(); i++) {
-            if (output.length() > 0) {
+            if (!output.isEmpty()) {
                 output.append('\n');
             }
             output.append(String.format("%5d %s", i + 1, history.get(i)));

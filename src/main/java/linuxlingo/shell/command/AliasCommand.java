@@ -46,14 +46,14 @@ public class AliasCommand implements Command {
             return CommandResult.success("");
         }
 
-        StringBuilder sbuild = new StringBuilder();
+        StringBuilder output = new StringBuilder();
         for (Map.Entry<String, String> entry : aliases.entrySet()) {
-            if (sbuild.length() > 0) {
-                sbuild.append('\n');
+            if (!output.isEmpty()) {
+                output.append('\n');
             }
-            sbuild.append("alias ").append(entry.getKey()).append("='").append(entry.getValue()).append("'");
+            output.append("alias ").append(entry.getKey()).append("='").append(entry.getValue()).append("'");
         }
-        return CommandResult.success(sbuild.toString());
+        return CommandResult.success(output.toString());
     }
 
     /**
