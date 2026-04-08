@@ -50,10 +50,11 @@ public class HistoryCommand implements Command {
         try {
             n = Integer.parseInt(nStr);
         } catch (NumberFormatException e) {
+            LOGGER.warning("history: non-numeric argument: " + nStr);
             return CommandResult.error("history: numeric argument required");
         }
 
-        if ( n < 0) {
+        if (n < 0) {
             return CommandResult.error("history: invalid option: " + nStr);
         }
 
@@ -72,7 +73,7 @@ public class HistoryCommand implements Command {
         assert fromIndex >= 0 : "fromIndex must be non-negative, got: " + fromIndex;
         assert fromIndex <= history.size() : "fromIndex exceeds history size";
 
-        if (history.isEmpty()) {
+        if (fromIndex >= history.size()) {
             return CommandResult.success("");
         }
 
