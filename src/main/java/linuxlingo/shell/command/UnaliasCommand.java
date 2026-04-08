@@ -69,7 +69,7 @@ public class UnaliasCommand implements Command {
 
     @Override
     public String getUsage() {
-        return "unalias [-a] <name>";
+        return "unalias [-a] <name> [name ...]";
     }
 
     @Override

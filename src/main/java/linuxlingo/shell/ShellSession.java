@@ -47,20 +47,6 @@ import linuxlingo.shell.vfs.VirtualFileSystem;
  *   <li>{@link ShellLineReader} — JLine terminal wrapper</li>
  *   <li>startInteractive() — JLine integration</li>
  * </ul>
- *
- * TODO: Member A should implement:
- * - Alias resolution in runPlan()
- * - || (OR) operator handling in runPlan()
- * - < input redirect handling in runPlan()
- * - Command history tracking in start()
- * - AliasCommand, UnaliasCommand, HistoryCommand
- *
- * TODO: Member B should implement:
- * - suggestCommand() / editDistance() — "Did you mean?" algorithm
- * - expandGlobs() / expandSingleGlob() — glob expansion
- * - startInteractive() — JLine integration
- * - ShellCompleter — tab-completion
- * - ShellLineReader — terminal wrapper & history
  */
 public class ShellSession {
 
@@ -144,7 +130,6 @@ public class ShellSession {
                 break;
             }
 
-            // TODO v2.0 (Owner A): track command in commandHistory
             commandHistory.add(trimmed);
 
             executePlan(input);
@@ -159,11 +144,6 @@ public class ShellSession {
      *
      * <p>v2.0 stub — to be implemented by Member B.</p>
      * <p>If JLine cannot initialise (e.g. no TTY), falls back to plain Ui input.</p>
-     *
-     * TODO: Member B — implement JLine integration:
-     * - Create ShellLineReader.create(this) 
-     * - Call start()
-     * - Close lineReader in finally block
      */
     public void startInteractive() {
         ShellLineReader originalReader = lineReader;
@@ -236,7 +216,6 @@ public class ShellSession {
      *   <li>{@code SEMICOLON} — segment N+1 always runs regardless of exit code</li>
      * </ul>
      *
-     * <h4>v2.0 TODO — additional semantics to implement:</h4>
      * <ul>
      *   <li>{@code OR}        — segment N+1 is skipped if lastExitCode == 0</li>
      *   <li>Alias resolution: check aliases map before registry lookup</li>
@@ -293,7 +272,6 @@ public class ShellSession {
                     continue;
                 }
 
-                // TODO v2.0 (Owner A): handle OR operator
                 if (precedingOp == ShellParser.TokenType.OR && lastExitCode == 0) {
                     continue;
                 }
@@ -309,7 +287,6 @@ public class ShellSession {
             String stdin = pipedStdin;
             pipedStdin = null;
 
-            // TODO v2.0 (Owner A): handle input redirect (< operator)
             if (segment.inputRedirect != null && !segment.inputRedirect.isEmpty()) {
                 try {
                     stdin = vfs.readFile(segment.inputRedirect, workingDir);
@@ -322,7 +299,6 @@ public class ShellSession {
                 }
             }
 
-            // TODO v2.0 (Owner A): resolve alias before registry lookup
             String resolvedName = resolveAlias(segment.commandName);
 
             String[] expandedArgs = expandCombinedFlags(segment.args);
@@ -405,8 +381,6 @@ public class ShellSession {
         }
         return lastResult;
     }
-
-    // Getters / Setters
 
     public VirtualFileSystem getVfs() {
         return vfs;

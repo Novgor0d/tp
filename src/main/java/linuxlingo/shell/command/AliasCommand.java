@@ -42,7 +42,7 @@ public class AliasCommand implements Command {
      * @return a {@link CommandResult} containing the formatted alias list, or empty if none defined
      */
     private CommandResult listAliases(ShellSession session) {
-        Map<String, String > aliases = session.getAliases();
+        Map<String, String> aliases = session.getAliases();
         if (aliases.isEmpty()) {
             return CommandResult.success("");
         }

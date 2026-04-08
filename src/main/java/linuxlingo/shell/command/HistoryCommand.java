@@ -82,7 +82,9 @@ public class HistoryCommand implements Command {
             if (!output.isEmpty()) {
                 output.append('\n');
             }
-            output.append(String.format("%5d %s", i + 1, history.get(i)));
+            output.append(String.format("%5d  %s", i + 1, history.get(i)));
+            // two spaces here to be consistent with bash history output
+
         }
         return CommandResult.success(output.toString());
     }
