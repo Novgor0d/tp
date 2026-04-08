@@ -8,22 +8,18 @@ import linuxlingo.shell.ShellSession;
  * Creates or displays shell aliases.
  * Syntax: alias [name=value]
  *
- * <p><b>Owner: A — stub; to be implemented.</b></p>
  *
- * TODO: Member A should implement:
- * - No args: list all aliases
- * - name=value: set an alias
- * - name (without =): show specific alias
- * - Strip surrounding quotes from values
+ * <p>Usage:</p>
+ * <ul>
+ *   <li>{@code alias}            — lists all currently defined aliases.</li>
+ *   <li>{@code alias name=value} — defines a new alias, stripping surrounding quotes.</li>
+ *   <li>{@code alias name}       — displays the value of a specific alias.</li>
+ * </ul>
  */
 public class AliasCommand implements Command {
 
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
-        // [v2.0 STUB] TODO: Implement alias command.
-        // No args: list all aliases.
-        // name=value: set an alias (strip surrounding quotes from value).
-        // name (without =): show that specific alias.
         if (args.length == 0) {
             return listAliases(session);
         }
@@ -37,8 +33,10 @@ public class AliasCommand implements Command {
     }
 
     /**
-     * Print all current aliases
-     * format for printing is name = 'value'
+     * Lists all currently defined aliases, one per line in {@code alias name='value'} format.
+     *
+     * @param session the active shell session
+     * @return a {@link CommandResult} containing the formatted alias list, or empty if none defined
      */
     private CommandResult listAliases(ShellSession session) {
         Map<String, String > aliases = session.getAliases();
@@ -57,9 +55,12 @@ public class AliasCommand implements Command {
     }
 
     /**
-     * Parses name=value or name='value and stores them in the aliases map
-     * @param definition the raw alias definition argument
-     * @return
+     * Parses a {@code name=value} definition and stores it in the session's alias map.
+     * Surrounding single or double quotes are stripped from the value.
+     *
+     * @param session    the active shell session
+     * @param definition the raw alias definition (e.g. {@code ll=ls -la} or {@code ll='ls -la'})
+     * @return a {@link CommandResult} indicating success or a descriptive error
      */
     private CommandResult setAlias(ShellSession session, String definition) {
         int eqIndex = definition.indexOf('=');
@@ -86,6 +87,13 @@ public class AliasCommand implements Command {
         return s;
     }
 
+    /**
+     * Displays the value of a single named alias.
+     *
+     * @param session the active shell session
+     * @param name    the alias name to look up
+     * @return a {@link CommandResult} with the alias definition, or an error if not found
+     */
     private CommandResult showAlias(ShellSession session, String name) {
         String value = session.getAliases().get(name);
         if (value == null) {
