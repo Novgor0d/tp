@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.HashSet;
+import java.util.Set;
 
 import linuxlingo.cli.Ui;
 import linuxlingo.shell.command.Command;
@@ -724,7 +726,7 @@ public class ShellSession {
      * @return the resolved command name
      */
     private String resolveAlias(String name) {
-        java.util.Set<String> visited = new java.util.HashSet<>();
+        Set<String> visited = new HashSet<>();
         String resolved = name;
         while (aliases.containsKey(resolved) && visited.add(resolved)) {
             resolved = aliases.get(resolved);
