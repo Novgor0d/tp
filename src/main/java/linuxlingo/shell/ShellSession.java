@@ -104,7 +104,7 @@ public class ShellSession {
      *       {@link #executePlan(String)}.</li>
      * </ol>
      *
-     * <h4>v2.0 TODO</h4>
+     * <h4>v2.0
      * <p>If a {@link ShellLineReader} has been set via {@link #setLineReader},
      * input should be read from JLine (with tab-completion and history).
      * Otherwise, falls back to {@link Ui#readLine(String)}.
@@ -114,7 +114,7 @@ public class ShellSession {
         assert !running : "start() called while session is already running";
 
         running = true;
-        LOGGER.info("Shell session started");
+        LOGGER.fine("Shell session started");
         ui.println("Welcome to LinuxLingo Shell! Type 'exit' to quit.");
 
         while (running) {
@@ -136,7 +136,7 @@ public class ShellSession {
             // Exit keyword stops the REPL
             String trimmed = input.trim();
             if (trimmed.equalsIgnoreCase("exit")) {
-                LOGGER.info("Exit keyword received... stopping REPL");
+                LOGGER.fine("Exit keyword received... stopping REPL");
                 running = false;
                 break;
             }

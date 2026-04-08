@@ -173,7 +173,7 @@ public class ShellParser {
      */
     private Segment buildSegment(List<String> words, RedirectInfo redirect, String inputRedirect) {
         assert words != null && !words.isEmpty()
-            : "buildSegmend() requires a non-empty word list";
+            : "buildSegment() requires a non-empty word list";
 
         String commandName = words.get(0);
         String[] args = new String[words.size()-1];
