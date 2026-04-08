@@ -104,7 +104,7 @@ public class ShellSession {
      *       {@link #executePlan(String)}.</li>
      * </ol>
      *
-     * <h4>v2.0
+     * <h4>v2.0</h4>
      * <p>If a {@link ShellLineReader} has been set via {@link #setLineReader},
      * input should be read from JLine (with tab-completion and history).
      * Otherwise, falls back to {@link Ui#readLine(String)}.
