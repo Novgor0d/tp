@@ -327,11 +327,16 @@ public class ShellSession {
     }
 
     /**
-     * Returns true if the segment at {@code index} should be skipped
+     * Returns {@code true} if the segment at {@code index} should be skipped
      * based on the preceding operator and the last exit code.
      *
-     * @param plan  the parsed plan
-     * @param index the segment index to evaluate
+     * <ul>
+     *   <li>{@code &&} — skips if the previous command failed (exit code != 0)</li>
+     *   <li>{@code ||} — skips if the previous command succeeded (exit code == 0)</li>
+     * </ul>
+     *
+     * @param plan  the parsed execution plan
+     * @param index the index of the segment being evaluated; 0 always returns false
      * @return {@code true} if the segment should not execute
      */
     private boolean shouldSkipSegment(ShellParser.ParsedPlan plan, int index) {
@@ -349,8 +354,12 @@ public class ShellSession {
     }
 
     /**
-     * Returns true if the operator preceding segment {@code index} is not a PIPE,
-     * meaning any carried stdin should be cleared.
+     * Returns {@code true} if the operator immediately before segment {@code index}
+     * is not a pipe. When true, any stdin carried from a previous pipe should be cleared.
+     *
+     * @param plan  the parsed execution plan
+     * @param index the index of the segment being evaluated; 0 always returns false
+     * @return {@code true} if the preceding operator is not {@code PIPE}
      */
     private boolean precedingOperatorIsNotPipe(ShellParser.ParsedPlan plan, int index) {
         if (index == 0) {
@@ -455,10 +464,20 @@ public class ShellSession {
         }
     }
 
+    /**
+     * Returns the virtual file system attached to this session.
+     *
+     * @return the current {@link VirtualFileSystem}
+     */
     public VirtualFileSystem getVfs() {
         return vfs;
     }
 
+    /**
+     * Returns the current working directory path.
+     *
+     * @return absolute path of the working directory
+     */
     public String getWorkingDir() {
         return workingDir;
     }
@@ -476,6 +495,11 @@ public class ShellSession {
         this.workingDir = path;
     }
 
+    /**
+     * Returns the previous working directory, used by {@code cd -}.
+     *
+     * @return the previous directory path, or {@code null} if there is none
+     */
     public String getPreviousDir() {
         return previousDir;
     }
@@ -490,42 +514,96 @@ public class ShellSession {
         this.previousDir = dir;
     }
 
+    /**
+     * Returns the exit code of the most recently executed command.
+     *
+     * @return the last exit code
+     */
     public int getLastExitCode() {
         return lastExitCode;
     }
 
+    /**
+     * Sets the exit code of the most recently executed command.
+     *
+     * @param code the exit code to record
+     */
     public void setLastExitCode(int code) {
         this.lastExitCode = code;
     }
 
+
+    /**
+     * Returns the command registry containing all registered shell commands.
+     *
+     * @return the {@link CommandRegistry}
+     */
     public CommandRegistry getRegistry() {
         return registry;
     }
 
+    /**
+     * Returns the UI used for printing output and reading input.
+     *
+     * @return the {@link Ui}
+     */
     public Ui getUi() {
         return ui;
     }
 
+    /**
+     * Returns the shell prompt string reflecting the current working directory.
+     *
+     * @return prompt string in the format {@code user@linuxlingo:<dir>$ }
+     */
     public String getPrompt() {
         return "user@linuxlingo:" + workingDir + "$ ";
     }
 
+    /**
+     * Replaces the virtual file system for this session.
+     * Intended for use in tests and level-reset scenarios.
+     *
+     * @param newVfs the replacement {@link VirtualFileSystem}; must not be null
+     */
     public void replaceVfs(VirtualFileSystem newVfs) {
         this.vfs = newVfs;
     }
 
+    /**
+     * Returns whether the shell REPL is currently running.
+     *
+     * @return {@code true} if the session is active
+     */
     public boolean isRunning() {
         return running;
     }
 
+    /**
+     * Returns the live alias map for this session.
+     * Modifications to the returned map directly affect alias resolution.
+     *
+     * @return mutable map of alias name to alias value
+     */
     public Map<String, String> getAliases() {
         return aliases;
     }
 
+    /**
+     * Returns the current JLine line reader, if one has been set.
+     *
+     * @return the {@link ShellLineReader}, or {@code null} if using plain UI input
+     */
     public ShellLineReader getLineReader() {
         return lineReader;
     }
 
+    /**
+     * Sets the JLine line reader to use for interactive input.
+     * Pass {@code null} to fall back to plain {@link Ui} input.
+     *
+     * @param reader the {@link ShellLineReader} to use, or {@code null}
+     */
     public void setLineReader(ShellLineReader reader) {
         this.lineReader = reader;
     }
@@ -744,10 +822,11 @@ public class ShellSession {
     }
 
     /**
-     * Resolve a command name through the alias map
+     * Resolves a command name through the alias map, following chains of aliases.
+     * Stops if a cycle is detected to prevent infinite loops.
      *
-     * @param name the raw command name (possibly an alias)
-     * @return the resolved command name
+     * @param name the raw command name typed by the user
+     * @return the fully resolved command name, or the original if no alias exists
      */
     private String resolveAlias(String name) {
         Set<String> visited = new HashSet<>();
