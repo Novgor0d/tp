@@ -92,21 +92,22 @@ public class ShellSession {
     }
 
     /**
-     * Enter interactive shell REPL.
+     * Starts the interactive shell REPL.
      *
-     * <h4>v1.0 (implemented)</h4>
-     * <ol>
-     *   <li>Set {@code running = true}; print welcome message.</li>
-     *   <li>Read input using {@link Ui#readLine(String)} with the shell prompt.</li>
-     *   <li>Loop: read line → handle special words ("back", "exit", "done") → call
-     *       {@link #executePlan(String)}.</li>
-     * </ol>
+     * <p>The session reads input lines in a loop and executes them until termination.
+     * Input is obtained from a {@link ShellLineReader} if configured, otherwise
+     * falls back to {@link Ui#readLine(String)}.</p>
      *
-     * <h4>v2.0</h4>
-     * <p>If a {@link ShellLineReader} has been set via {@link #setLineReader},
-     * input should be read from JLine (with tab-completion and history).
-     * Otherwise, falls back to {@link Ui#readLine(String)}.
-     * Also track each command in {@code commandHistory}.</p>
+     * <p>Special handling:
+     * <ul>
+     *   <li>{@code null} input terminates the session (e.g. end of piped input).</li>
+     *   <li>Blank lines are ignored.</li>
+     *   <li>{@code exit} (case-insensitive) terminates the session.</li>
+     *   <li>Commands are recorded in history, except for {@code history} itself.</li>
+     * </ul>
+     * </p>
+     *
+     * <p>Each valid input line is passed to {@link #executePlan(String)} for execution.</p>
      */
     public void start() {
         assert !running : "start() called while session is already running";
@@ -645,7 +646,6 @@ public class ShellSession {
     /**
      * Suggest a similar command name using edit distance.
      *
-     * <p>v2.0 stub — to be implemented by Member B.</p>
      * <p>Should iterate all registered command names, compute edit distance,
      * and return "Did you mean 'X'?" if the best match has distance ≤ 2.</p>
      *
@@ -679,7 +679,6 @@ public class ShellSession {
     /**
      * Compute Levenshtein edit distance between two strings.
      *
-     * <p>v2.0 stub — to be implemented by Member B.</p>
      * <p>Use dynamic programming: dp[i][j] = min edits to transform a[0..i-1] to b[0..j-1].</p>
      *
      * @param a first string
@@ -766,7 +765,6 @@ public class ShellSession {
     /**
      * Expand glob patterns (*, ?) in arguments against the VFS.
      *
-     * <p>v2.0 stub — to be implemented by Member B.</p>
      * <p>For each arg containing wildcards and a path separator,
      * expand against VFS using {@link #expandSingleGlob(String)}.
      * If no matches, keep the literal arg.</p>
@@ -778,7 +776,7 @@ public class ShellSession {
         List<String> expanded = new ArrayList<>();
         for (String arg : args) {
             // Skip single-quoted tokens (marked with \0 prefix)
-            if (arg.startsWith("\0")) {
+            if (arg.startsWith(ShellParser.SINGLE_QUOTE_MARKER)) {
                 expanded.add(arg);
                 continue;
             }
@@ -801,7 +799,6 @@ public class ShellSession {
     /**
      * Expand a single glob pattern against the VFS.
      *
-     * <p>v2.0 stub — to be implemented by Member B.</p>
      * <p>Split the pattern at the last '/', use the prefix as the directory
      * and the suffix as the file pattern. Use
      * {@link VirtualFileSystem#findByName(String, String, String)} for matching.</p>
@@ -882,7 +879,7 @@ public class ShellSession {
     public String[] expandVariables(String[] args) {
         String[] expanded = new String[args.length];
         for (int i = 0; i < args.length; i++) {
-            if (args[i].startsWith("\0")) {
+            if (args[i].startsWith(ShellParser.SINGLE_QUOTE_MARKER)) {
                 // Single-quoted token: strip marker, skip variable expansion
                 expanded[i] = args[i].substring(1);
             } else {

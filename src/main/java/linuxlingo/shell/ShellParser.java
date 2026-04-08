@@ -39,6 +39,13 @@ public class ShellParser {
     private static final Logger LOGGER =  Logger.getLogger(ShellParser.class.getName());
 
     /**
+     * Prefix marker applied to single-quoted tokens to suppress glob
+     * and variable expansion. Chosen because \0 cannot appear in valid
+     * shell input. Consumers: expandGlobs(), expandVariables().
+     */
+    static final String SINGLE_QUOTE_MARKER = "\0";
+
+    /**
      * Enumeration of token types recognized by the parser.
      */
     public enum TokenType {
@@ -281,7 +288,7 @@ public class ShellParser {
         assert current != null : "current StringBuilder must not be null";
         assert tokens != null : "tokens list must not be null";
         if (!current.isEmpty() || wasQuoted) {
-            String value = singleQuoted ? "\0" + current.toString() : current.toString();
+            String value = singleQuoted ? SINGLE_QUOTE_MARKER + current.toString() : current.toString();
             tokens.add(new Token(value, TokenType.WORD));
             current.setLength(0);
         }
