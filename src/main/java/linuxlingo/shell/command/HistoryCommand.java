@@ -5,19 +5,14 @@ import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
 
 /**
- * Displays the command history.
+ * Displays the in-session command history.
  *
- * <p>Usage: {@code history} — lists all commands in the current session history.</p>
- * <p>Usage: {@code history -c} — clears the command history.</p>
- * <p>Usage: {@code history N} — shows the last N commands.</p>
- *
- * <p><b>Owner: A — stub; to be implemented.</b></p>
- *
- * TODO: Member A should implement:
- * - List numbered history entries
- * - -c flag to clear history
- * - Numeric argument to limit output
- * - Fall back to in-memory history if no ShellLineReader
+ * <p>Usage:</p>
+ * <ul>
+ *   <li>{@code history}    — lists all commands, numbered from 1.</li>
+ *   <li>{@code history N}  — shows the last N commands.</li>
+ *   <li>{@code history -c} — clears the command history.</li>
+ * </ul>
  */
 public class HistoryCommand implements Command {
 
@@ -44,8 +39,12 @@ public class HistoryCommand implements Command {
     }
 
     /**
-     * Show only the last n entries;
-     * returns an error if n is not a valid integer
+     * Returns the last {@code n} history entries as a formatted result.
+     * Returns an error result if the argument is not a valid non-negative integer.
+     *
+     * @param history the current command history list
+     * @param nStr    the raw argument string representing {@code N}
+     * @return a {@link CommandResult} with the last N entries, or an error
      */
     private CommandResult showLastN(List<String> history, String nStr) {
         int n;
@@ -64,7 +63,11 @@ public class HistoryCommand implements Command {
     }
 
     /**
-     * Format history entries as a numbered list
+     * Formats history entries as a numbered list starting from {@code fromIndex}.
+     *
+     * @param history   the full history list
+     * @param fromIndex the index to start listing from (inclusive)
+     * @return a {@link CommandResult} containing the formatted output
      */
     private CommandResult formatHistory(List<String> history, int fromIndex) {
         if (history.isEmpty()) {
