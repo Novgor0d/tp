@@ -31,6 +31,10 @@ public class HistoryCommand implements Command {
             return formatHistory(history, 0);
         }
 
+        if (args.length > 1) {
+            return CommandResult.error("history: too many arguemnts");
+        }
+
         if (args[0].equals("-c")) {
             history.clear();
             LOGGER.fine("Command history cleared");
@@ -49,21 +53,29 @@ public class HistoryCommand implements Command {
      * @return a {@link CommandResult} with the last N entries, or an error
      */
     private CommandResult showLastN(List<String> history, String nStr) {
-        int n;
+
+        CommandResult validationResult = validateNumericArgument(nStr);
+        if (!validationResult.isSuccess()) {
+            return validationResult;
+        }
+
+        int n = Integer.parseInt(nStr);
+        // prevent startIndex from being -ve when N > history.size()
+        int startIndex = Math.max(0, history.size() - n);
+        return formatHistory(history, startIndex);
+    }
+
+    private CommandResult validateNumericArgument(String nStr) {
         try {
-            n = Integer.parseInt(nStr);
+            int n = Integer.parseInt(nStr);
+            if (n < 0) {
+                return CommandResult.error("history: invalid option " + nStr);
+            }
+            return CommandResult.success("");
         } catch (NumberFormatException e) {
             LOGGER.warning("history: non-numeric argument: " + nStr);
             return CommandResult.error("history: numeric argument required");
         }
-
-        if (n < 0) {
-            return CommandResult.error("history: invalid option: " + nStr);
-        }
-
-        // ensure startIndex never goes negative when the requested count exceeds history size
-        int startIndex = Math.max(0, history.size() - n);
-        return formatHistory(history, startIndex);
     }
 
     /**
