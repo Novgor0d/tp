@@ -36,14 +36,14 @@ import java.util.logging.Logger;
  */
 public class ShellParser {
 
-    private static final Logger LOGGER =  Logger.getLogger(ShellParser.class.getName());
-
     /**
      * Prefix marker applied to single-quoted tokens to suppress glob
      * and variable expansion. Chosen because \0 cannot appear in valid
      * shell input. Consumers: expandGlobs(), expandVariables().
      */
-    static final String SINGLE_QUOTE_MARKER = "\0";
+    public static final String SINGLE_QUOTE_MARKER = "\0";
+
+    private static final Logger LOGGER =  Logger.getLogger(ShellParser.class.getName());
 
     /**
      * Enumeration of token types recognized by the parser.
