@@ -248,7 +248,7 @@ public class ShellParser {
     }
 
     private Segment buildSegment(List<String> words, RedirectInfo redirect) {
-        return buildSegment(words, redirect);
+        return buildSegment(words, redirect, null);
     }
 
     /**

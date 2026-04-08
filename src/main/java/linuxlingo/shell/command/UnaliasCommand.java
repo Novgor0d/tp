@@ -25,13 +25,16 @@ public class UnaliasCommand implements Command {
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
         if (args.length == 0) {
-            return CommandResult.error("unalias: usage: unalias name [name ...]");
+            return CommandResult.error("unalias: usage:" + getUsage());
         }
 
         Map<String, String> aliases = session.getAliases();
 
         // -a flag clears all aliases
         if (args[0].equals("-a")) {
+            if (args.length > 1) {
+                return CommandResult.error("unalias: -a: cannot be used with alias names");
+            }
             aliases.clear();
             LOGGER.fine("All aliases cleared");
             return CommandResult.success("");
@@ -49,6 +52,13 @@ public class UnaliasCommand implements Command {
      * @return success if all names were found; otherwise an error listing missing names
      */
     private CommandResult removeNamedAliases(Map<String, String> aliases, String[] names) {
+        // checking if '-a' appears anywhere (raises error if it is not the first arg)
+        for (String name : names) {
+            if (name.startsWith("-")) {
+                return CommandResult.error("unalias: " + name + ": invalid option");
+            }
+        }
+
         StringBuilder errors = new StringBuilder();
 
         for (String name: names) {

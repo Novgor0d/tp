@@ -27,6 +27,10 @@ public class AliasCommand implements Command {
             return listAliases(session);
         }
 
+        if (args.length > 1) {
+            return CommandResult.error("alias: too many arguments");
+        }
+
         // if name is provided without '=' then show that specific alias
         if (!args[0].contains("=")) {
             return showAlias(session, args[0]);

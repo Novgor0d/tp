@@ -20,8 +20,7 @@ public class HistoryCommand implements Command {
 
     private static final Logger LOGGER = Logger.getLogger(HistoryCommand.class.getName());
 
-    private static final int COLUMN_WIDTH = 5;
-    private static final String SEPARATOR = " ";
+    private static final String HISTORY_FORMAT = "%d  %s";
 
     @Override
     public CommandResult execute(ShellSession session, String[] args, String stdin) {
@@ -53,29 +52,19 @@ public class HistoryCommand implements Command {
      * @return a {@link CommandResult} with the last N entries, or an error
      */
     private CommandResult showLastN(List<String> history, String nStr) {
-
-        CommandResult validationResult = validateNumericArgument(nStr);
-        if (!validationResult.isSuccess()) {
-            return validationResult;
-        }
-
-        int n = Integer.parseInt(nStr);
-        // prevent startIndex from being -ve when N > history.size()
-        int startIndex = Math.max(0, history.size() - n);
-        return formatHistory(history, startIndex);
-    }
-
-    private CommandResult validateNumericArgument(String nStr) {
+        int n;
         try {
-            int n = Integer.parseInt(nStr);
-            if (n < 0) {
-                return CommandResult.error("history: invalid option " + nStr);
-            }
-            return CommandResult.success("");
+            n = Integer.parseInt(nStr);
         } catch (NumberFormatException e) {
-            LOGGER.warning("history: non-numeric argument: " + nStr);
             return CommandResult.error("history: numeric argument required");
         }
+
+        if ( n < 0) {
+            return CommandResult.error("history: invalid option: " + nStr);
+        }
+
+        int startIndex = Math.max(0, history.size() - n);
+        return formatHistory(history, startIndex);
     }
 
     /**
@@ -100,7 +89,7 @@ public class HistoryCommand implements Command {
                 output.append('\n');
             }
 
-            output.append(String.format("%" + COLUMN_WIDTH + "d%s%s", i + 1, SEPARATOR, history.get(i)));
+            output.append(String.format(HISTORY_FORMAT, i + 1, history.get(i)));
         }
         return CommandResult.success(output.toString());
     }
