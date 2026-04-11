@@ -57,9 +57,9 @@ public class ShellSession {
             "name", "type", "size", "exec", "perm", "path",
             "help", "sort", "file", "count"
     );
-        private static final java.util.Set<String> SUSPICIOUS_REDIRECT_ARGS = java.util.Set.of(
+    private static final java.util.Set<String> SUSPICIOUS_REDIRECT_ARGS = java.util.Set.of(
             "then", "do", "done", "fi", "else", "elif"
-        );
+    );
 
     private VirtualFileSystem vfs;
     private String workingDir;
