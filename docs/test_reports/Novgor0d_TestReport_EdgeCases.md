@@ -858,10 +858,10 @@ syntax error: unexpected end of input after operator
 
 ## Bugs and Issues Found
 
-| ID    | Severity | Category | Description |
-|-------|---|---|---|
-| BUG-1 | Medium | Piping | Double redirect `echo hello > a.txt > b.txt` — second redirect silently overwrites first in the parser. Undocumented. |
-| BUG-2 | Medium | Piping | Bare `< file` with no command silently does nothing — no error, no output. Should produce a syntax or usage error. |
-| BUG-3 | Low | Navigation | `ls` with multiple nonexistent arguments only reports an error for the first one. Subsequent missing paths are silently ignored. |
-| BUG-4 | Low | File Operations | `diff` with two nonexistent files only reports error for the first file. Same silent-skip issue as BUG-4. |
+| ID    | Severity | Category | Description                                                                                                                         |
+|-------|---|---|-------------------------------------------------------------------------------------------------------------------------------------|
+| BUG-1 | Medium | Piping | Double redirect `echo hello > a.txt > b.txt` — second redirect silently overwrites first in the parser. Undocumented.               |
+| BUG-2 | Medium | Piping | Bare `< file` with no command silently does nothing — no error, no output. Should produce a syntax or usage error.                  |
+| BUG-3 | Low | Navigation | `ls` with multiple nonexistent arguments only reports an error for the first one. Subsequent missing paths are silently ignored.    |
+| BUG-4 | Low | File Operations | `diff` with two nonexistent files only reports error for the first file. Same silent-skip issue as BUG-3.                           |
 | BUG-5 | Low | Chaining | `;;;` (only semicolons, no commands) produces no output and no error. Should be a syntax error consistent with `echo a ; ; echo b`. |
