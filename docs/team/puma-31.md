@@ -1,8 +1,10 @@
 # Purav Mahesh – Project Portfolio Page
 
-## LinuxLingo - Exam Module
+## Overview
 
-I was the **primary developer** of the **Exam module** in **LinuxLingo**, an educational CLI app teaching Linux commands through practice and exam-style questions. The module allows students to take structured exams with multiple question types (MCQ, fill-in-the-blanks, and practical shell exercises) and receive instant feedback with scoring. I designed the **end-to-end exam experience**, from question data models and parsing pipelines, through session management and interactive workflows, to comprehensive grading, feedback, and results reporting—emphasizing robustness, maintainability, and seamless CLI user experience.
+**LinuxLingo** is an educational CLI application that teaches Linux commands through interactive practice and exam-style assessments. It combines a virtual shell simulator with a comprehensive quiz system, allowing students to safely practice Linux commands in an isolated file system environment and test their knowledge through multiple question types.
+
+I was the **primary developer** of the **Exam module**, designing and implementing the end-to-end exam experience. The module enables structured exams with three question types (MCQ, fill-in-the-blanks, and practical shell exercises), instant feedback, and scoring. My implementation spans question data models and parsing pipelines, session management and interactive workflows, to comprehensive grading, feedback, and results reporting—emphasizing robustness, maintainability, and seamless CLI user experience.
 
 ## Contributions
 
@@ -18,7 +20,7 @@ I was the **primary developer** of the **Exam module** in **LinuxLingo**, an edu
 
 **Documentation:**
 - **User Guide:** Authored comprehensive [Exam System](https://ay2526s2-cs2113-t10-2.github.io/tp/UserGuide.html#exam-system) section documenting exam modes, commands (4 invocation formats with examples), interactive flow, in-exam control commands with context-dependent behavior table (MCQ/FITB vs. PRAC), question types with answer instructions, PRAC workflow examples, and edge case handling.
-- **Developer Guide:** Authored 3 major sections (~400 lines) — [Exam Session Flow](https://ay2526s2-cs2113-t10-2.github.io/tp/DeveloperGuide.html#exam-session-flow), Exam Component (Practical Questions), and Question Parsing and Loading. Covered exam module architecture (entry points, orchestration, integration), question types & grading logic, control command design decisions, parsing pipeline details (tokenization, type-specific rules, error handling), and checkpoint verification examples. Created 8 UML diagrams: 2 class diagrams (`ExamClassDiagram.puml`, `PracQuestionClassDiagram.puml`), 4 sequence diagrams (`ExamSessionSequence.puml`, `ExamControlCommandsSequence.puml`, `PracQuestionSequence.puml`, `McqFitbAnswerInteractionSequence.puml`), and 2 activity diagrams (`PracQuestionSetupActivity.puml`, `McqFitbLineParsingActivity.puml`).
+- **Developer Guide:** Authored 3 major sections — [Exam Session Flow](https://ay2526s2-cs2113-t10-2.github.io/tp/DeveloperGuide.html#exam-session-flow), Exam Component (Practical Questions), and Question Parsing and Loading. Covered exam module architecture (entry points, orchestration, integration), question types & grading logic, control command design decisions, parsing pipeline details (tokenization, type-specific rules, error handling), and checkpoint verification examples. Created 8 UML diagrams: 2 class diagrams (`ExamClassDiagram.puml`, `PracQuestionClassDiagram.puml`), 4 sequence diagrams (`ExamSessionSequence.puml`, `ExamControlCommandsSequence.puml`, `PracQuestionSequence.puml`, `McqFitbAnswerInteractionSequence.puml`), and 2 activity diagrams (`PracQuestionSetupActivity.puml`, `McqFitbLineParsingActivity.puml`).
 
 **Team Contributions:**
 - Code reviews: [#152](https://github.com/AY2526S2-CS2113-T10-2/tp/pull/152), [#212](https://github.com/AY2526S2-CS2113-T10-2/tp/pull/212), [#94](https://github.com/AY2526S2-CS2113-T10-2/tp/pull/94)
