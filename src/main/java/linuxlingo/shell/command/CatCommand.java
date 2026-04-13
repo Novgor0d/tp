@@ -50,7 +50,7 @@ public class CatCommand implements Command {
                     hasError = true;
                 }
             }
-            String result = sb.toString().trim();
+            String result = sb.toString();
 
             return hasError ? CommandResult.error(result) : CommandResult.success(result);
         }
