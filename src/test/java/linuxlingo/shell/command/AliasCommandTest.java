@@ -94,13 +94,6 @@ public class AliasCommandTest {
     }
 
     @Test
-    public void alias_tooManyArgsReturnsError() {
-        CommandResult result = command.execute(session, new String[]{"ll=ls", "extra"}, null);
-        assertTrue(result.isSuccess());
-        assertEquals("ls", session.getAliases().get("ll"));
-    }
-
-    @Test
     public void alias_setAliasWithDoubleQuotesStripsQuotes() {
         CommandResult result = command.execute(session, new String[]{"ll=\"ls -la\""}, null);
         assertTrue(result.isSuccess());

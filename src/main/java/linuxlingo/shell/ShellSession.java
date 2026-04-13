@@ -500,7 +500,7 @@ public class ShellSession {
         return expandVariables(args);
     }
 
-     private List<String> detectSuspiciousRedirectWarnings(ShellParser.Segment segment) {
+    private List<String> detectSuspiciousRedirectWarnings(ShellParser.Segment segment) {
         List<String> warnings = new ArrayList<>();
         if (segment.redirect == null) {
             return warnings;

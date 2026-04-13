@@ -99,12 +99,15 @@ public class AliasCommand implements Command {
         if (args.length > 1) {
             StringBuilder extraArgs = new StringBuilder();
             for (int i = 1; i < args.length; i++) {
-                if (i > 1) extraArgs.append(' ');
+                if (i > 1) {
+                    extraArgs.append(' ');
+                }
                 extraArgs.append(args[i]);
             }
             return CommandResult.error(
-                    "alias: too many arguments: '" + extraArgs + "' will be ignored.\n" +
-                            "Use quotes if you want to include them in the alias: alias " + name + "='" + value + " " + extraArgs + "'"
+                    "alias: too many arguments: " +
+                            "Use quotes if you want to include them in the alias: alias "
+                            + name + "='" + value + " " + extraArgs + "'"
             );
         }
 
