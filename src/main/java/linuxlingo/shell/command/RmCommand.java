@@ -37,21 +37,27 @@ public class RmCommand implements Command {
             return CommandResult.error("rm: missing operand");
         }
 
+        StringBuilder sb = new StringBuilder();
+        boolean hasError = false;
+
         for (String path : paths) {
             try {
                 String absTarget = session.getVfs().getAbsolutePath(path, session.getWorkingDir());
                 String absCwd = session.getVfs().getAbsolutePath(session.getWorkingDir(), "/");
                 if (absCwd.equals(absTarget) || absCwd.startsWith(absTarget + "/")) {
-                    return CommandResult.error("rm: cannot remove '" + path
-                            + "': current working directory is inside this directory");
+                    sb.append("rm: cannot remove'").append(path).append("': current working directory is inside this directory").append("\n");
+                    hasError = true;
+                    continue;
                 }
                 session.getVfs().delete(path, session.getWorkingDir(), recursive, force);
             } catch (VfsException e) {
-                return CommandResult.error("rm: " + e.getMessage());
+                sb.append("rm: ").append(e.getMessage()).append("\n");
+                hasError = true;
             }
         }
 
-        return CommandResult.success("");
+        String result = sb.toString().trim();
+        return hasError ? CommandResult.error(result) : CommandResult.success("");
     }
 
     @Override

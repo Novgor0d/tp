@@ -35,6 +35,7 @@ public class CatCommand implements Command {
 
         StringBuilder sb = new StringBuilder();
         int lineNumber = 1;
+        boolean hasError = false;
 
         if (!files.isEmpty()) {
             for (String file : files) {
@@ -42,10 +43,16 @@ public class CatCommand implements Command {
                     String content = session.getVfs().readFile(file, session.getWorkingDir());
                     lineNumber = appendContent(sb, content, numberLines, lineNumber);
                 } catch (VfsException e) {
-                    return CommandResult.error("cat: " + e.getMessage());
+                    if (!sb.isEmpty() && sb.charAt(sb.length() - 1) != '\n') {
+                        sb.append("\n");
+                    }
+                    sb.append("cat: ").append(e.getMessage()).append("\n");
+                    hasError = true;
                 }
             }
-            return CommandResult.success(sb.toString());
+            String result = sb.toString().trim();
+
+            return hasError ? CommandResult.error(result) : CommandResult.success(result);
         }
 
         if (stdin != null) {
@@ -59,7 +66,7 @@ public class CatCommand implements Command {
 
         return CommandResult.error(
                 "cat: reading from stdin is not supported in LinuxLingo."
-                + " Provide a filename or use piping.");
+                        + " Provide a filename or use piping.");
     }
 
     private int appendContent(StringBuilder sb, String content, boolean numberLines, int lineNumber) {

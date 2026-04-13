@@ -54,6 +54,8 @@ public class HeadCommand implements Command {
         }
 
         List<String> output = new ArrayList<>();
+        boolean hasError = false;
+
         boolean multiFile = files.size() > 1;
 
         if (!files.isEmpty()) {
@@ -68,14 +70,16 @@ public class HeadCommand implements Command {
                     }
                     appendHeadLines(output, content, n);
                 } catch (VfsException e) {
-                    return CommandResult.error("head: " + e.getMessage());
+                    output.add("head: " + files.get(i) + ": " + e.getMessage());
+                    hasError = true;
                 }
             }
         } else {
             appendHeadLines(output, stdin, n);
         }
 
-        return CommandResult.success(String.join("\n", output));
+        String result = String.join("\n", output);
+        return hasError ? CommandResult.error(result) : CommandResult.success(result);
     }
 
     private void appendHeadLines(List<String> output, String content, int n) {

@@ -34,14 +34,21 @@ public class MvCommand implements Command {
                     || !session.getVfs().resolve(dest, session.getWorkingDir()).isDirectory()) {
                 return CommandResult.error("mv: target '" + dest + "' is not a directory");
             }
+
+            StringBuilder sb = new StringBuilder();
+            boolean hasError = false;
+
             for (int i = 0; i < paths.size() - 1; i++) {
                 try {
                     session.getVfs().move(paths.get(i), dest, session.getWorkingDir());
                 } catch (VfsException e) {
-                    return CommandResult.error("mv: " + e.getMessage());
+                    sb.append("mv: ").append(e.getMessage()).append("\n");
+                    hasError = true;
                 }
             }
-            return CommandResult.success("");
+
+            String result = sb.toString().trim();
+            return hasError ? CommandResult.error(result) : CommandResult.success("");
         }
 
         try {

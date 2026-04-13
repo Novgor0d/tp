@@ -41,18 +41,27 @@ public class CpCommand implements Command {
                     || !session.getVfs().resolve(dest, session.getWorkingDir()).isDirectory()) {
                 return CommandResult.error("cp: target '" + dest + "' is not a directory");
             }
+
+            StringBuilder sb = new StringBuilder();
+            boolean hasError = false;
+
             for (int i = 0; i < paths.size() - 1; i++) {
                 try {
                     CommandResult validationError = validateCopy(session, paths.get(i), dest);
                     if (validationError != null) {
-                        return validationError;
+                        sb.append(validationError.getStderr()).append("\n");
+                        hasError = true;
+                        continue;
                     }
+
                     session.getVfs().copy(paths.get(i), dest, session.getWorkingDir(), recursive);
                 } catch (VfsException e) {
-                    return CommandResult.error("cp: " + e.getMessage());
+                    sb.append("cp: ").append(e.getMessage()).append("\n");
+                    hasError = true;
                 }
             }
-            return CommandResult.success("");
+            String result = sb.toString().trim();
+            return hasError ? CommandResult.error(result) : CommandResult.success("");
         }
 
         try {
