@@ -1,7 +1,9 @@
 package linuxlingo.shell.command;
 
+
 import java.util.Map;
 import java.util.logging.Logger;
+import static java.util.Arrays.copyOfRange;
 
 import linuxlingo.shell.CommandResult;
 import linuxlingo.shell.ShellSession;
@@ -40,6 +42,12 @@ public class AliasCommand implements Command {
 
         // if name is provided without '=' then show that specific alias
         if (!primaryArg.contains("=")) {
+            // Extra args with no '=' is ambiguous
+            if (args.length > 1) {
+                return CommandResult.error(
+                        "alias: too many arguments (did you mean: alias " + primaryArg + "='"
+                                + String.join(" ", copyOfRange(args, 1, args.length)) + "'?)");
+            }
             return showAlias(session, primaryArg);
         }
 
@@ -125,6 +133,7 @@ public class AliasCommand implements Command {
      */
     private CommandResult showAlias(ShellSession session, String name) {
         String value = session.getAliases().get(name);
+
         if (value == null) {
             return CommandResult.error("alias: " + name + ": not found");
         }
