@@ -215,7 +215,54 @@ public class MainParserTest {
     public void run_examUnknownFlag_fallsBackGracefully() {
         MainParser parser = createParser("exam -unknown\nexit\n");
         parser.run();
-        assertTrue(outStream.toString().contains("Goodbye!"));
+        String output = outStream.toString();
+        assertTrue(output.contains("Invalid exam command") && output.contains("Usage"),
+                "Unknown exam flag should show usage error, got: " + output);
+    }
+
+    @Test
+    public void run_examDuplicateTopicFlag_showsUsageError() {
+        MainParser parser = createParser("exam -t navigation -t file-management\nexit\n");
+        parser.run();
+        String output = outStream.toString();
+        assertTrue(output.contains("Duplicate flag") && output.contains("Usage"),
+                "Duplicate -t should be rejected, got: " + output);
+    }
+
+    @Test
+    public void run_examMissingTopicValue_showsUsageError() {
+        MainParser parser = createParser("exam -t\nexit\n");
+        parser.run();
+        String output = outStream.toString();
+        assertTrue(output.contains("Missing value") && output.contains("Usage"),
+                "Missing -t value should be rejected, got: " + output);
+    }
+
+    @Test
+    public void run_examMissingCountValue_showsUsageError() {
+        MainParser parser = createParser("exam -n\nexit\n");
+        parser.run();
+        String output = outStream.toString();
+        assertTrue(output.contains("Missing value") && output.contains("Usage"),
+                "Missing -n value should be rejected, got: " + output);
+    }
+
+    @Test
+    public void run_examCountWithoutTopic_showsUsageError() {
+        MainParser parser = createParser("exam -n 5\nexit\n");
+        parser.run();
+        String output = outStream.toString();
+        assertTrue(output.contains("requires -t") && output.contains("Usage"),
+                "-n without -t should be rejected, got: " + output);
+    }
+
+    @Test
+    public void run_examCountAndRandomWithoutTopic_showsUsageError() {
+        MainParser parser = createParser("exam -n 3 -random\nexit\n");
+        parser.run();
+        String output = outStream.toString();
+        assertTrue(output.contains("requires -t") && output.contains("Usage"),
+                "-n with -random but without -t should be rejected, got: " + output);
     }
 
     // ─── case sensitivity of command dispatch ─────────────────────

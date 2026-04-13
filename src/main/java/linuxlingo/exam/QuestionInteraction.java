@@ -5,6 +5,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import linuxlingo.cli.Ui;
+import linuxlingo.exam.question.FitbQuestion;
+import linuxlingo.exam.question.McqQuestion;
 import linuxlingo.exam.question.Question;
 
 /**
@@ -30,6 +32,75 @@ class QuestionInteraction {
     private String askQuestion(Question question, int index, int total) {
         ui.println("[Q" + index + "/" + total + "] " + question.present());
         return ui.readLine("Your answer: ");
+    }
+
+    /**
+     * Reads a FITB response and rejects empty input.
+     * Prints the question once, then re-prompts only for the answer.
+     *
+     * @return user answer (may contain spaces), or a raw command ("quit"/"abort"),
+     *     or {@code null} if the UI returns null.
+     */
+    private String askValidatedFitbAnswer(FitbQuestion question, int index, int total) {
+        ui.println("[Q" + index + "/" + total + "] " + question.present());
+        while (true) {
+            String userAnswer = ui.readLine("Your answer: ");
+            if (userAnswer == null) {
+                return null;
+            }
+
+            String trimmed = userAnswer.trim();
+            if (trimmed.equalsIgnoreCase("quit") || trimmed.equalsIgnoreCase("abort")) {
+                return trimmed;
+            }
+
+            if (trimmed.isEmpty()) {
+                ui.println("Invalid input. Please enter a non-empty answer.");
+                continue;
+            }
+
+            return userAnswer;
+        }
+    }
+
+    /**
+     * Reads an MCQ response and validates that it is one of A/B/C/D.
+     * Keeps prompting until the user enters a valid option, or types quit/abort.
+     *
+     * @return normalized answer ("A"/"B"/"C"/"D"), or a raw command ("quit"/"abort"),
+     *     or {@code null} if the UI returns null.
+     */
+    private String askValidatedMcqAnswer(McqQuestion question, int index, int total) {
+        ui.println("[Q" + index + "/" + total + "] " + question.present());
+        while (true) {
+            String userAnswer = ui.readLine("Your answer: ");
+            if (userAnswer == null) {
+                return null;
+            }
+
+            String trimmed = userAnswer.trim();
+            if (trimmed.equalsIgnoreCase("quit") || trimmed.equalsIgnoreCase("abort")) {
+                return trimmed;
+            }
+
+            if (trimmed.isEmpty()) {
+                ui.println("Invalid input. Please enter A, B, C, or D.");
+                continue;
+            }
+
+            if (trimmed.length() != 1) {
+                ui.println("Invalid input. Please enter A, B, C, or D.");
+                continue;
+            }
+
+            char c = Character.toUpperCase(trimmed.charAt(0));
+            if (c < 'A' || c > 'D') {
+                ui.println("Invalid input. Please enter A, B, C, or D.");
+                continue;
+            }
+
+            return String.valueOf(c);
+        }
     }
 
     /**
@@ -75,9 +146,17 @@ class QuestionInteraction {
             throw new IllegalArgumentException("index and total must be positive");
         }
 
-        String userAnswer = askQuestion(question, index, total);
+        String userAnswer;
+        if (question instanceof McqQuestion) {
+            userAnswer = askValidatedMcqAnswer((McqQuestion) question, index, total);
+        } else if (question instanceof FitbQuestion) {
+            userAnswer = askValidatedFitbAnswer((FitbQuestion) question, index, total);
+        } else {
+            userAnswer = askQuestion(question, index, total);
+        }
         if (userAnswer == null || userAnswer.trim().equalsIgnoreCase("quit")) {
             LOGGER.log(Level.FINE, "Question skipped by user at index {0}", index);
+            ui.println("Skipped.");
             return false;
         }
 
