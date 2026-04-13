@@ -44,7 +44,16 @@
 1. JDK 17 or above.
 2. Gradle 7.x (wrapper included — use `./gradlew`).
 
-**Building the project:**
+**Steps:**
+
+1. Fork this repo, then clone the fork onto your computer.
+
+2. **Configure your IDE** (IntelliJ IDEA is recommended):
+    - Ensure IntelliJ is set to use **JDK 17**: `File → Project Structure → Project SDK`.
+    - Import the project as a **Gradle project**
+
+
+3. **Building the project:**
 
 ```shell
 ./gradlew build
