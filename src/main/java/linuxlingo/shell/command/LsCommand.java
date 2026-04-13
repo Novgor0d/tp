@@ -56,13 +56,14 @@ public class LsCommand implements Command {
             targetPaths.add(session.getWorkingDir());
         }
 
-        try {
-            List<String> lines = new ArrayList<>();
-            boolean multiTarget = targetPaths.size() > 1;
+        List<String> lines = new ArrayList<>();
+        boolean hasError = false;
+        boolean multiTarget = targetPaths.size() > 1;
 
-            for (int t = 0; t < targetPaths.size(); t++) {
-                String targetPath = targetPaths.get(t);
+        for (int t = 0; t < targetPaths.size(); t++) {
+            String targetPath = targetPaths.get(t);
 
+            try {
                 // Check if the target is a file (not a directory) — display it directly (#143)
                 FileNode targetNode = session.getVfs().resolve(targetPath, session.getWorkingDir());
                 if (!targetNode.isDirectory()) {
@@ -87,11 +88,15 @@ public class LsCommand implements Command {
                 } else {
                     listDirectory(session, targetPath, longFormat, showHidden, lines);
                 }
+            } catch (VfsException e) {
+                lines.add("ls: " + e.getMessage());
+                hasError = true;
             }
-            return CommandResult.success(String.join("\n", lines));
-        } catch (VfsException e) {
-            return CommandResult.error("ls: " + e.getMessage());
         }
+
+        String result = String.join("\n", lines);
+
+        return hasError ? CommandResult.error(result) : CommandResult.success(result);
     }
 
     /**

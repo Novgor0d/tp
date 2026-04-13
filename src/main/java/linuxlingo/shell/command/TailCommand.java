@@ -72,6 +72,8 @@ public class TailCommand implements Command {
         }
 
         List<String> output = new ArrayList<>();
+        boolean hasError = false;
+
         boolean multiFile = files.size() > 1;
 
         if (!files.isEmpty()) {
@@ -90,7 +92,8 @@ public class TailCommand implements Command {
                         appendTailLines(output, content, n);
                     }
                 } catch (VfsException e) {
-                    return CommandResult.error("tail: " + e.getMessage());
+                    output.add("tail: " + files.get(i) + ": " + e.getMessage());
+                    hasError = true;
                 }
             }
         } else {
@@ -101,7 +104,8 @@ public class TailCommand implements Command {
             }
         }
 
-        return CommandResult.success(String.join("\n", output));
+        String result = String.join("\n", output);
+        return hasError ? CommandResult.error(result) : CommandResult.success(result);
     }
 
     private void appendTailLines(List<String> output, String content, int n) {

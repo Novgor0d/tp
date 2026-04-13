@@ -24,17 +24,25 @@ public class DiffCommand implements Command {
         String file1Path = args[0];
         String file2Path = args[1];
 
-        String content1;
-        String content2;
+        String content1 = null;
+        String content2 = null;
+
+        List<String> errors = new ArrayList<>();
+
         try {
             content1 = session.getVfs().readFile(file1Path, session.getWorkingDir());
         } catch (VfsException e) {
-            return CommandResult.error("diff: " + e.getMessage());
+            errors.add("diff: " + e.getMessage());
         }
+
         try {
             content2 = session.getVfs().readFile(file2Path, session.getWorkingDir());
         } catch (VfsException e) {
-            return CommandResult.error("diff: " + e.getMessage());
+            errors.add("diff: " + e.getMessage());
+        }
+
+        if (!errors.isEmpty()) {
+            return CommandResult.error(String.join("\n", errors));
         }
 
         if (content1.equals(content2)) {
