@@ -396,9 +396,9 @@ These commands are interpreted centrally by `QuestionInteraction`, not by indivi
 
 This design prevents control-flow logic from being duplicated across modes (interactive vs direct vs random), since the same `QuestionInteraction` logic is reused.
 
-> **UML placeholder:** Add a **Sequence Diagram** here showing normal answer vs `quit` vs `abort`.
->
-> Suggested participants: `ExamSession`, `QuestionInteraction`, `Ui`, `Question`, `ExamResult`.
+The following sequence diagram illustrates how `quit` and `abort` are handled for **non-PRAC** questions during an exam run:
+
+![Exam session – In-exam control commands (quit / abort)](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ExamControlCommandsSequence.puml)
 
 **PRAC question handling:**
 
@@ -429,10 +429,9 @@ These changes are internal to the exam module and transparent to callers such as
 
 At a high level, the flow for a `PRAC` question becomes:
 
-1. `ExamSession` creates a fresh `VirtualFileSystem` via `vfsFactory`.
-2. `ExamSession` asks the `PracQuestion` to apply any configured setup into that VFS (planned — `applySetup()` is implemented in `PracQuestion` but not yet called by `ExamSession`).
-3. `ExamSession` starts a temporary `ShellSession` over the prepared VFS and lets the user perform the task.
-4. When the user exits the shell, `PracQuestion.checkVfs()` verifies all `Checkpoint`s against the final VFS state.
+ 1. `ExamSession` creates a fresh `VirtualFileSystem` via `vfsFactory`.
+ 2. `ExamSession` starts a temporary `ShellSession` over the fresh VFS and lets the user perform the task.
+ 3. When the user exits the shell, `PracQuestion.checkVfs()` verifies all `Checkpoint`s against the final VFS state.
 
 The feature is implemented by extending the existing `PracQuestion` and `Checkpoint` classes; no new top-level types are introduced.
 
@@ -461,7 +460,8 @@ The feature is implemented by extending the existing `PracQuestion` and `Checkpo
 
 - `ExamSession` (in `linuxlingo.exam`)
   - Orchestrates `PRAC` questions via `handlePracQuestion(PracQuestion q)`.
-  - Planned: call `q.applySetup(tempVfs)` before starting the `ShellSession` (not yet wired).
+  - Current: creates a fresh VFS, starts a temp shell, then checks the final VFS (`q.checkVfs(tempVfs)`).
+  - Not yet wired: calling `q.applySetup(tempVfs)` before starting the `ShellSession`.
 
 This keeps the public interface between modules unchanged: the CLI, Shell, and Storage components continue to treat the Exam module as a black box that exposes `ExamSession` and `QuestionBank` only.
 
@@ -603,11 +603,44 @@ TYPE | DIFFICULTY | QUESTION_TEXT | ANSWER | OPTIONS | EXPLANATION
 
 #### Type-specific parsing rules
 
+The following diagrams zoom in on the MCQ/FITB-specific parsing and model structure:
+
+![MCQ/FITB Line Parsing Activity Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/McqFitbLineParsingActivity.puml)
+
+![Question Models (MCQ/FITB) Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/QuestionModelsMcqFitbClassDiagram.puml)
+
 ##### MCQ
 
 - **Answer format**: a single letter, e.g. `B`.
 - **Options format**: `A:text B:text C:text D:text`.
 - Parsed into `LinkedHashMap<Character, String>` to preserve display order in `McqQuestion.present()`.
+
+**Parsing logic (exact implementation)**
+
+MCQ lines are handled by `QuestionParser.parseMcq(...)`.
+
+1. **Answer validation**
+   - The `ANSWER` field is trimmed.
+   - If the trimmed answer is blank, parsing fails with `IllegalArgumentException("MCQ answer must not be blank")`.
+2. **Options parsing**
+   - The `OPTIONS` field is trimmed and split using the regex:
+     - `(?=[A-D]:)`
+   - Each split segment is then trimmed and interpreted as:
+     - `letter ':' text`
+   - Only segments where `segment.length() >= 2` and `segment.charAt(1) == ':'` are accepted.
+   - The option map key is `segment.charAt(0)` and the value is `segment.substring(2).trim()`.
+3. **Options validation**
+   - If no valid options are parsed, parsing fails with `IllegalArgumentException("MCQ options must not be empty")`.
+4. **Correct answer must exist in options**
+   - The correct answer character is taken as `answer.charAt(0)`.
+   - It is uppercased for the lookup: `Character.toUpperCase(correctAnswer)`.
+   - If the resulting letter is not a key in the parsed options map, parsing fails with
+     `IllegalArgumentException("MCQ correct answer not found in options")`.
+
+**How invalid MCQ entries are handled**
+
+`QuestionParser.parseFile(...)` catches `RuntimeException` thrown from `parseMcq(...)`.
+If parsing fails, the line is **skipped** (with a logged warning) and the parser continues loading subsequent lines.
 
 Example line:
 
@@ -621,7 +654,89 @@ MCQ | EASY | Which command prints the current directory? | B | A:cd B:pwd C:ls D
 - `QuestionParser` splits answers and stores them in a `List<String>` used by `FitbQuestion.checkAnswer(...)`.
 - Escaping (notably `\|`) is handled so authors can include literal pipes in answer text.
 
-Example line:
+**Parsing logic (exact implementation)**
+
+FITB lines are handled by `QuestionParser.parseFitb(...)`.
+
+1. **Splitting into accepted answers**
+   - The raw `ANSWER` field is split using the regex:
+     - `(?<!\\)\|`
+     - i.e., split on `|` that is **not** preceded by a backslash (`\`).
+2. **Trimming and unescaping**
+   - Each split part is processed as:
+     - `acceptedAnswer.trim().replace("\\|", "|")`
+   - Empty strings after trimming are ignored.
+3. **Accepted-answer list must be non-empty**
+   - If the resulting `List<String>` is empty, parsing fails with:
+     - `IllegalArgumentException("FITB accepted answer list must not be empty")`.
+
+**Authoring notes (important for validation)**
+
+- Accepted answers are compared as an **exact string match after trimming**.
+  - `FitbQuestion.checkAnswer(...)` uses `acceptedAnswers.contains(answer.trim())`.
+  - This means the match is **case-sensitive** unless the question bank explicitly provides variants (e.g., `pwd|PWD`).
+- If an accepted answer itself needs to contain a literal `|` character, it must be escaped as `\|` in the bank.
+
+**How invalid FITB entries are handled**
+
+As with MCQ, any `RuntimeException` thrown while parsing a FITB entry causes the line to be **skipped** (with a logged warning).
+
+---
+
+#### Runtime answer input validation (MCQ/FITB)
+
+This section documents how user input is validated during an exam run. It is separate from question-bank parsing.
+
+The following sequence diagram shows the end-to-end interaction when a user answers an MCQ/FITB question (including reprompts, skip, and abort behavior):
+
+![MCQ/FITB Answer Interaction Sequence Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/McqFitbAnswerInteractionSequence.puml)
+
+**Where it happens**
+
+- `ExamSession` delegates non-PRAC question attempts to `QuestionInteraction`.
+- `QuestionInteraction.presentQuestionWithResult(...)` selects the appropriate input routine based on the runtime type:
+  - `McqQuestion` -> `askValidatedMcqAnswer(...)`
+  - `FitbQuestion` -> `askValidatedFitbAnswer(...)`
+
+**MCQ input validation (`askValidatedMcqAnswer`)**
+
+- The question is printed once, then the user is repeatedly prompted for `Your answer:` until a valid input is entered.
+- The following inputs are treated as control commands:
+  - `quit` (case-insensitive): skip the question
+  - `abort` (case-insensitive): abort the entire exam
+- Otherwise, the input is valid only if:
+  - after trimming it is exactly **one character**, and
+  - that character (uppercased) is in the range **A-D**.
+- A valid MCQ input is normalized to uppercase (i.e., returns `"A"`, `"B"`, `"C"`, or `"D"`).
+
+**FITB input validation (`askValidatedFitbAnswer`)**
+
+- The question is printed once, then the user is repeatedly prompted for `Your answer:`.
+- The same control commands are supported:
+  - `quit` (case-insensitive): skip the question
+  - `abort` (case-insensitive): abort the entire exam
+- Otherwise, the input is valid only if it is **non-empty after trimming**.
+- The original user input is returned (not the trimmed version). Grading later trims it again.
+
+**Grading logic (`checkAnswer`)**
+
+- MCQ grading is implemented in `McqQuestion.checkAnswer(String)`:
+  - trims user answer
+  - requires length 1
+  - normalizes to uppercase
+  - checks it is within A-D
+  - compares it to the stored `correctAnswer`
+- FITB grading is implemented in `FitbQuestion.checkAnswer(String)`:
+  - trims user answer
+  - checks membership in `acceptedAnswers` (case-sensitive)
+
+**Skip/abort handling**
+
+- If the user input is `abort`, `QuestionInteraction` sets an internal `examAborted` flag, prints `Exam aborted.`, and stops the run.
+- If the user input is `quit` or the UI returns `null`, the question is considered **skipped**:
+  - `ExamResult.addResult(question, "", false)` is recorded (empty stored answer, incorrect)
+
+ Example line:
 
 ```text
 FITB | EASY | To print the current directory: ___ | pwd|PWD | | pwd prints the current working directory.
