@@ -2,7 +2,9 @@
 
 ## Overview
 
-I was the **primary developer** of the **Exam module** in **LinuxLingo**, an educational CLI app teaching Linux commands through practice and exam-style questions. The module allows students to take structured exams with multiple question types (MCQ, fill-in-the-blanks, and practical shell exercises) and receive instant feedback with scoring. I designed the **end-to-end exam experience**, from question data models and parsing pipelines, through session management and interactive workflows, to comprehensive grading, feedback, and results reporting—emphasizing robustness, maintainability, and seamless CLI user experience.
+**LinuxLingo** is an educational CLI application that teaches Linux commands through interactive practice and exam-style assessments. It combines a virtual shell simulator with a comprehensive quiz system, allowing students to safely practice Linux commands in an isolated file system environment and test their knowledge through multiple question types.
+
+I was the **primary developer** of the **Exam module**, designing and implementing the end-to-end exam experience. The module enables structured exams with three question types (MCQ, fill-in-the-blanks, and practical shell exercises), instant feedback, and scoring. My implementation spans question data models and parsing pipelines, session management and interactive workflows, to comprehensive grading, feedback, and results reporting—emphasizing robustness, maintainability, and seamless CLI user experience.
 
 ## Contributions
 
