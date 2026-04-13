@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import linuxlingo.cli.MainParser;
 import linuxlingo.cli.Ui;
 import linuxlingo.exam.ExamSession;
+import linuxlingo.exam.ExamCommandParser;
 import linuxlingo.exam.QuestionBank;
 import linuxlingo.shell.ShellSession;
 import linuxlingo.shell.vfs.VirtualFileSystem;
@@ -146,41 +147,28 @@ public class LinuxLingo {
      * and delegating to the appropriate {@link ExamSession} method.
      */
     private static void handleExam(String[] args, ExamSession examSession) {
-        String topic = null;
-        int count = -1;
-        boolean random = false;
-        boolean listTopics = false;
-
-        for (int i = 1; i < args.length; i++) {
-            switch (args[i]) {
-            case "-t" -> {
-                if (i + 1 < args.length) {
-                    topic = args[++i];
-                }
-            }
-            case "-n" -> {
-                if (i + 1 < args.length) {
-                    try {
-                        count = Integer.parseInt(args[++i]);
-                    } catch (NumberFormatException e) {
-                        // ignore
-                    }
-                }
-            }
-            case "-random" -> random = true;
-            case "-topics" -> listTopics = true;
-            default -> { }
-            }
+        String[] examArgs = (args.length <= 1) ? new String[0] : java.util.Arrays.copyOfRange(args, 1, args.length);
+        ExamCommandParser.ParsedExamArgs parsed = ExamCommandParser.parse(examArgs);
+        if (!parsed.ok) {
+            System.out.println("Invalid exam command: " + parsed.errorMessage);
+            System.out.println(ExamCommandParser.USAGE);
+            return;
         }
 
-        if (listTopics) {
+        if (parsed.listTopics) {
             examSession.listTopics();
-        } else if (random && topic == null) {
-            examSession.runOneRandom();
-        } else if (topic != null) {
-            examSession.startWithArgs(topic, count, random);
-        } else {
-            examSession.startInteractive();
+            return;
         }
+        if (parsed.random && parsed.topic == null) {
+            examSession.runOneRandom();
+            return;
+        }
+        if (parsed.topic != null) {
+            int count = parsed.count == null ? -1 : parsed.count;
+            examSession.startWithArgs(parsed.topic, count, parsed.random);
+            return;
+        }
+
+        examSession.startInteractive();
     }
 }
