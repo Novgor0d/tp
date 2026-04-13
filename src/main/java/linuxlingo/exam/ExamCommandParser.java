@@ -75,7 +75,8 @@ public final class ExamCommandParser {
         Set<String> seen = new HashSet<>();
 
         for (int i = 0; i < args.length; i++) {
-            String token = args[i];
+            // Be defensive: callers may pass tokens with extra whitespace.
+            String token = args[i] == null ? "" : args[i].trim();
             switch (token) {
             case "-t" -> {
                 if (!seen.add("-t")) {
@@ -97,7 +98,7 @@ public final class ExamCommandParser {
                     return ParsedExamArgs.error("Missing value for -n");
                 }
                 try {
-                    count = Integer.parseInt(value);
+                    count = Integer.parseInt(value.trim());
                 } catch (NumberFormatException e) {
                     return ParsedExamArgs.error("Invalid count: " + value);
                 }
@@ -143,7 +144,11 @@ public final class ExamCommandParser {
             return null;
         }
         String value = args[valueIndex];
-        if (value.startsWith("-")) {
+        if (value == null) {
+            return null;
+        }
+        value = value.trim();
+        if (value.isEmpty() || value.startsWith("-")) {
             return null;
         }
         return value;
