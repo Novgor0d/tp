@@ -290,12 +290,14 @@ public class ShellSession {
             pipedStdin = null;
 
             String[] args = prepareArgs(segment);
-            Command command = resolveCommand(segment.commandName);
+
+            String resolvedName = resolveAlias(segment.commandName, new ArrayList<>());
+            Command command = registry.get(resolvedName);
 
             if (command == null) {
-                String errorMsg = segment.commandName + ": command not found";
-                LOGGER.log(Level.WARNING, "Command not found: ''{0}''", segment.commandName);
-                String suggestion = suggestCommand(segment.commandName);
+                String errorMsg = resolvedName + ": command not found";
+                LOGGER.log(Level.WARNING, "Command not found: ''{0}''", resolvedName);
+                String suggestion = suggestCommand(resolvedName);
                 if (suggestion != null) {
                     errorMsg += "\n" + suggestion;
                 }
@@ -498,18 +500,7 @@ public class ShellSession {
         return expandVariables(args);
     }
 
-    /**
-     * Resolves a command name (after alias expansion) to a {@link Command} instance.
-     *
-     * @param rawName the command name as typed
-     * @return the resolved {@link Command}, or {@code null} if not found
-     */
-    private Command resolveCommand(String rawName) {
-        String resolvedName = resolveAlias(rawName, new ArrayList<>());
-        return registry.get(resolvedName);
-    }
-
-    private List<String> detectSuspiciousRedirectWarnings(ShellParser.Segment segment) {
+     private List<String> detectSuspiciousRedirectWarnings(ShellParser.Segment segment) {
         List<String> warnings = new ArrayList<>();
         if (segment.redirect == null) {
             return warnings;
