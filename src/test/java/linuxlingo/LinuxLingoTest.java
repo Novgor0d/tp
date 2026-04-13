@@ -133,8 +133,9 @@ public class LinuxLingoTest {
     @Test
     void oneShot_examInvalidCountDoesNotCrash() {
         LinuxLingo.main(new String[]{"exam", "-n", "notanumber"});
-        // Should swallow the NumberFormatException and fall back to startInteractive
-        assertTrue(true);
+        String out = outBytes.toString();
+        assertTrue(out.contains("Invalid exam command") && out.contains("Usage"),
+                "Invalid -n value should show usage error, got: " + out);
     }
 
     @Test
@@ -146,8 +147,41 @@ public class LinuxLingoTest {
     @Test
     void oneShot_examUnknownArgsFallsBackToInteractive() {
         LinuxLingo.main(new String[]{"exam", "-unknown"});
-        // Unknown flag is silently skipped; falls back to startInteractive
-        assertTrue(true);
+        String out = outBytes.toString();
+        assertTrue(out.contains("Invalid exam command") && out.contains("Usage"),
+                "Unknown exam flag should show usage error, got: " + out);
+    }
+
+    @Test
+    void oneShot_examDuplicateTopicFlagPrintsUsageError() {
+        LinuxLingo.main(new String[]{"exam", "-t", "navigation", "-t", "file-management"});
+        String out = outBytes.toString();
+        assertTrue(out.contains("Duplicate flag") && out.contains("Usage"),
+                "Duplicate -t should be rejected, got: " + out);
+    }
+
+    @Test
+    void oneShot_examMissingTopicValuePrintsUsageError() {
+        LinuxLingo.main(new String[]{"exam", "-t"});
+        String out = outBytes.toString();
+        assertTrue(out.contains("Missing value") && out.contains("Usage"),
+                "Missing -t value should be rejected, got: " + out);
+    }
+
+    @Test
+    void oneShot_examCountWithoutTopicPrintsUsageError() {
+        LinuxLingo.main(new String[]{"exam", "-n", "5"});
+        String out = outBytes.toString();
+        assertTrue(out.contains("requires -t") && out.contains("Usage"),
+                "-n without -t should be rejected, got: " + out);
+    }
+
+    @Test
+    void oneShot_examCountAndRandomWithoutTopicPrintsUsageError() {
+        LinuxLingo.main(new String[]{"exam", "-n", "3", "-random"});
+        String out = outBytes.toString();
+        assertTrue(out.contains("requires -t") && out.contains("Usage"),
+                "-n with -random but without -t should be rejected, got: " + out);
     }
 
     // ─── shell one-shot mode ──────────────────────────────────────
