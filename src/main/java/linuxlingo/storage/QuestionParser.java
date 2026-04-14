@@ -77,9 +77,10 @@ public class QuestionParser {
                 continue;
             }
 
-            String[] rawFields = trimmedLine.split("\\s+\\|\\s+", -1);
+            // Limit split to FIELD_COUNT to avoid breaking on pipe chars within the explanation field
+            String[] rawFields = trimmedLine.split("\\s+\\|\\s+", FIELD_COUNT);
 
-            if (rawFields.length < 4 || rawFields.length > FIELD_COUNT) {
+            if (rawFields.length < 4) {
                 LOGGER.log(Level.WARNING, "Skipping malformed question line {0} in {1}",
                         new Object[]{i + 1, validatedPath});
                 continue;
