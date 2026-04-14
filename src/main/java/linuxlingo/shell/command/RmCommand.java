@@ -45,7 +45,7 @@ public class RmCommand implements Command {
                 String absTarget = session.getVfs().getAbsolutePath(path, session.getWorkingDir());
                 String absCwd = session.getVfs().getAbsolutePath(session.getWorkingDir(), "/");
                 if (absCwd.equals(absTarget) || absCwd.startsWith(absTarget + "/")) {
-                    sb.append("rm: cannot remove'")
+                    sb.append("rm: cannot remove '")
                             .append(path)
                             .append("': current working directory is inside this directory")
                             .append("\n");
