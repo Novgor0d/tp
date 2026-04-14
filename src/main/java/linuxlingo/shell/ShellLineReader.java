@@ -95,6 +95,10 @@ public class ShellLineReader {
         // Disable audible bell, use visible bell instead
         reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
 
+        // Disable JLine's backslash escaping so that backslashes are passed
+        // through literally to ShellParser (which handles its own escaping).
+        reader.setOpt(LineReader.Option.DISABLE_EVENT_EXPANSION);
+
         return new ShellLineReader(reader, terminal, history);
     }
 
