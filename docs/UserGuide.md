@@ -2,6 +2,8 @@
 
 LinuxLingo is a **command-line application for learning Linux commands** through an interactive shell simulator and a built-in quiz system. It is optimised for Computer Science students who want to build confidence with the Linux command line by typing real commands, seeing real output, and testing their knowledge with quizzes -- all within a safe, in-memory virtual file system (VFS) that never touches your real files.
 
+> **Who this guide is for:** Computer Science students who want hands-on Linux practice in a safe sandbox, with immediate feedback and without affecting any real files on their computer.
+
 ---
 
 - [Quick Start](#quick-start)
@@ -440,7 +442,7 @@ Format: `wc [-l] [-w] [-c] [FILE...]`
 
 Examples:
 
-- `wc readme.txt` -- show line, word, and character counts.
+- `wc hello.txt` -- show line, word, and character counts.
 
     ```text
     user@linuxlingo:/home/user$ echo "hello" > hello.txt
@@ -469,6 +471,13 @@ Examples:
 
 - `sort names.txt` -- sort lines alphabetically.
 - `cat numbers.txt | sort -rn` -- sort numerically in reverse.
+
+```text
+user@linuxlingo:/$ echo -e "banana\napple\ncherry" | sort
+apple
+banana
+cherry
+```
 
 #### Removing adjacent duplicates: `uniq`
 
@@ -591,6 +600,13 @@ Prints the current username (always `user`).
 
 Format: `whoami`
 
+Example:
+
+```text
+user@linuxlingo:/$ whoami
+user
+```
+
 #### Displaying the date and time: `date`
 
 Displays the current date and time.
@@ -626,11 +642,11 @@ Examples:
 
 > **Tip:** Aliases can chain. If `mypwd2` is aliased to `mypwd` and `mypwd` is itself aliased to something else, LinuxLingo follows the chain automatically.
 >
-> ![Chaining_Example.png](docs/imgs/AliasCommandChainingExample.png)
+> ![Chaining_Example.png](imgs/AliasCommandChainingExample.png)
 
 ---
 
-### Removing aliases : `unalias`
+#### Removing aliases: `unalias`
 
 Removes one or more previously defined aliases.
 
@@ -645,11 +661,11 @@ Examples:
 - `unalias ll la` -- removes both `ll` and `la`.
 - `unalias -a` -- clears all aliases.
 
-![Unalias_Example.png](docs/imgs/UnaliasCommandExample.png)
+![Unalias_Example.png](imgs/UnaliasCommandExample.png)
 
 ---
 
-### Viewing command history : `history`
+#### Viewing command history: `history`
 
 Shows a numbered list of previously entered commands.
 
@@ -670,7 +686,7 @@ user@linuxlingo:/$ history
 
 > **Note:** Every command you enter is recorded, including ones that produce errors. The `history` command itself is also recorded.
 >
->![History_Example.png](docs/imgs/HistoryCommandExample.png)
+>![History_Example.png](imgs/HistoryCommandExample.png)
 ---
 
 ### Environment Management Commands
@@ -713,17 +729,39 @@ Resets the VFS to its default initial state (standard directories only).
 
 Format: `reset`
 
+Example:
+
+```text
+user@linuxlingo:/home/user$ reset
+Environment reset to default.
+```
+
 #### Listing saved environments: `envlist`
 
 Lists all saved environment snapshots.
 
 Format: `envlist`
 
+Example:
+
+```text
+user@linuxlingo:/home/user$ envlist
+Saved environments:
+    my-workspace
+```
+
 #### Deleting a saved environment: `envdelete`
 
 Deletes a saved environment snapshot.
 
 Format: `envdelete NAME`
+
+Example:
+
+```text
+user@linuxlingo:/home/user$ envdelete my-workspace
+Environment deleted: my-workspace
+```
 
 ---
 
@@ -859,6 +897,11 @@ LinuxLingo supports tab completion for faster input:
 - Press **Tab** to auto-complete command names and file/directory paths.
 - If there are multiple matches, pressing Tab twice shows all possibilities.
 
+Example:
+
+- Typing `gr` and pressing Tab completes it to `grep` when that is the only matching command.
+- Typing part of a file path such as `cat re` and pressing Tab completes it to a matching file when the path is unambiguous.
+
 > [Tip] **Tip:** Tab completion also works with alias names.
 
 ---
@@ -976,6 +1019,8 @@ Available topics:
   4. piping-redirection (12 questions)
   5. text-processing (12 questions)
 ```
+
+> [Note] **Note:** The exact question counts depend on the current question bank files, so they may change if the question bank is updated.
 
 #### Question types
 

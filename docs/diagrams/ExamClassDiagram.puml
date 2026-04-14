@@ -77,6 +77,10 @@ class QuestionInteraction {
     + presentSingleQuestion(q, index, total) : boolean
 }
 
+interface PracHandler {
+    + handle(question) : boolean
+}
+
 class RandomQuestionMode {
     - questionBank : QuestionBank
     - ui : Ui
@@ -107,6 +111,7 @@ ExamSession --> RandomQuestionMode : delegates
 ExamSession ..> ShellSession : creates temp\n(for PRAC)
 QuestionBank --> "*" Question : stores
 RandomQuestionMode --> QuestionInteraction : uses
+RandomQuestionMode --> PracHandler : delegates PRAC
 PracQuestion --> "*" Checkpoint : verified by
 Question --> QT
 Question --> QD

@@ -135,7 +135,7 @@ The Shell component:
 - `ShellLineReader` and `ShellCompleter` provide JLine-based tab-completion and command history support for the interactive shell.
 - Each `Command` implementation receives the current `ShellSession` (for VFS access and session state), parsed arguments, and optional piped stdin. It returns a `CommandResult` containing stdout, stderr, and an exit code.
 
-**Supported commands (35 total):**
+**Supported commands (35 total, grouped below by user-facing function):**
 
 | Category | Commands |
 | -------- | -------- |
@@ -255,6 +255,10 @@ This means a plan with three segments always has exactly two operators connectin
 Class Diagram
 
 ![ParsedPlan Class Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ParsedPlanClassDiagram.puml)
+
+Object Diagram (example instance)
+
+![ParsedPlan Object Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/AY2526S2-CS2113-T10-2/tp/master/docs/diagrams/ParsedPlanObjectDiagram.puml)
 
 #### Execution engine (`ShellSession.runPlan()`)
 
@@ -500,8 +504,7 @@ The feature is implemented by extending the existing `PracQuestion` and `Checkpo
 
 - `ExamSession` (in `linuxlingo.exam`)
   - Orchestrates `PRAC` questions via `handlePracQuestion(PracQuestion q)`.
-  - Current: creates a fresh VFS, starts a temp shell, then checks the final VFS (`q.checkVfs(tempVfs)`).
-  - Not yet wired: calling `q.applySetup(tempVfs)` before starting the `ShellSession`.
+  - Creates a fresh VFS, calls `q.applySetup(tempVfs)` to prepare the environment, starts a temp shell, then checks the final VFS (`q.checkVfs(tempVfs)`).
 
 This keeps the public interface between modules unchanged: the CLI, Shell, and Storage components continue to treat the Exam module as a black box that exposes `ExamSession` and `QuestionBank` only.
 
@@ -879,8 +882,10 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 | `**` | student | use glob patterns (*.txt) | match multiple files at once |
 | `**` | student | use conditional execution (&&, \|\|) | understand command chaining logic |
 | `**` | student | use shell variables ($USER, $HOME, $PWD) | understand how variables work in a shell |
+| `**` | student | execute a single shell command without entering the shell simulator | quickly test or demonstrate one command |
 | `*` | student | take a random question | get a quick knowledge check |
 | `*` | student | list and delete saved environments | manage my saved workspaces |
+| `*` | student | abort an exam that I do not want to continue | return to the main menu without finishing every question |
 | `*` | student | read manual pages with `man` | learn about a command's usage |
 | `*` | student | see a directory tree with `tree` | visualize the file system structure |
 | `*` | student | get "Did you mean?" suggestions on typos | quickly correct mistyped commands |
@@ -894,11 +899,11 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 
 1. **Portability:** Should work on any mainstream OS (Windows, Linux, macOS) with Java 17 or above installed.
 2. **Performance:** All shell commands should execute in under 100ms. VFS operations should handle file systems with up to 1000 nodes without noticeable lag.
-3. **Usability:** A user familiar with basic Linux commands should be able to use the shell simulator without consulting documentation.
+3. **Usability:** A user familiar with basic Linux commands should be able to complete the core shell workflow (enter shell, navigate directories, create a file, and inspect output) by following the User Guide.
 4. **Reliability:** The application should handle all invalid inputs gracefully (no crashes) and provide descriptive error messages.
-5. **Testability:** All components should be unit-testable in isolation. The `Ui` class accepts injectable I/O streams for test harness use.
+5. **Testability:** Core parsing, command execution, exam logic, and VFS logic should remain testable in isolation through unit tests.
 6. **Data Integrity:** VFS snapshots saved to disk must be losslessly restorable. Escaping rules must preserve file content containing newlines, pipes, and backslashes.
-7. **Single-user:** The application is designed for single-user use and does not need to handle concurrent access.
+7. **Safety/Isolation:** Shell commands must operate only on the in-memory VFS and must not create, modify, or delete the user's real files.
 
 ---
 
@@ -914,15 +919,17 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 | **PRAC** | Practical question — user performs tasks in a temporary shell; VFS state is verified against checkpoints. |
 | **Checkpoint** | An expected condition on a VFS path (existence, type, content, or permissions) used to verify PRAC question answers. |
 | **SetupItem** | A declarative VFS initialization instruction (create directory, create file, set permissions) applied before a PRAC question begins. |
+| **REPL** | Read-Eval-Print Loop — an interactive loop that repeatedly reads user input, executes it, and prints the result. |
 | **Segment** | A single command with its arguments and optional redirect info, part of a `ParsedPlan`. |
 | **ParsedPlan** | The structured result of parsing a shell input: a list of Segments connected by operators. |
+| **Token** | A smallest meaningful unit produced by the shell tokenizer, such as a word, operator, or redirect symbol. |
 | **Environment (.env)** | A text file storing a serialized VFS snapshot and working directory, saved under `data/environments/`. |
 | **Piping** | Connecting the stdout of one command to the stdin of the next using the pipe character (&#124;). |
 | **Redirection** | Directing command output to a file (`>`/`>>`) or reading input from a file (`<`). |
 | **Glob** | A wildcard pattern (`*`, `?`) used to match multiple file names in the VFS. |
+| **Levenshtein Distance** | A string-edit distance metric used by command suggestion logic to find the closest valid command to a mistyped input. |
 | **Alias** | A user-defined shortcut for a command name, stored in the shell session. |
 | **Question Bank** | A collection of question files (`.txt`) organized by topic under `data/questions/`. |
-| **Mainstream OS** | Windows, Linux, macOS. |
 
 ---
 
@@ -935,7 +942,7 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 1. **Initial launch**
    - Ensure Java 17+ is installed.
    - Build the project: `./gradlew shadowJar`
-   - Run: `java -jar build/libs/tp.jar`
+   - Run: `java -jar build/libs/LinuxLingo.jar`
    - Expected: Welcome banner and `linuxlingo>` prompt are displayed.
 
 2. **Help command**
@@ -1016,6 +1023,9 @@ LinuxLingo provides an interactive Linux shell simulator combined with a quiz sy
 14. **Info commands**
     - `man ls` → displays usage info for `ls`
     - `tree` → displays directory tree from current directory
+    - `which ls grep` → shows that both commands are available
+    - `whoami` → prints `user`
+    - `date +%Y-%m-%d` → prints the current date in year-month-day format
 
 15. **Diff and tee**
     - `echo "a" > /tmp/f1.txt` and `echo "b" > /tmp/f2.txt` then `diff /tmp/f1.txt /tmp/f2.txt` → shows differences

@@ -14,10 +14,10 @@ package "LinuxLingo" {
 Main --> CLI : creates
 Main --> Shell : creates
 Main --> Exam : creates
-Main --> Storage : uses
+Main ..> Storage : uses
 
-CLI --> Shell : dispatches to
-CLI --> Exam : dispatches to
+CLI ..> Shell : dispatches to
+CLI ..> Exam : dispatches to
 
 Shell --> VFS : operates on
 Shell ..> Storage : (via VfsSerializer)
